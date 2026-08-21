@@ -7,6 +7,7 @@
 // overload responses before giving up.
 
 const { getStore } = require('@netlify/blobs');
+const { requireAuth } = require('./lib/auth');
 
 const RATE_LIMIT_MAX_PER_HOUR = 20;
 const RATE_LIMIT_WINDOW_MS = 60 * 60 * 1000;
@@ -18,19 +19,11 @@ function json(statusCode, obj) {
 }
 function sleep(ms) { return new Promise((resolve) => setTimeout(resolve, ms)); }
 
-function getClientIp(event) {
-  return (
-    event.headers['x-nf-client-connection-ip'] ||
-    (event.headers['x-forwarded-for'] || '').split(',')[0].trim() ||
-    'unknown'
-  );
-}
-
-async function checkAndIncrementRateLimit(ip) {
+async function checkAndIncrementRateLimit(userEmail) {
   try {
     const store = getStore('rate-limits');
     const bucket = Math.floor(Date.now() / RATE_LIMIT_WINDOW_MS);
-    const key = `${ip}:${bucket}`;
+    const key = `${userEmail}:${bucket}`;
     const current = (await store.get(key, { type: 'json' })) || { count: 0 };
     if (current.count >= RATE_LIMIT_MAX_PER_HOUR) {
       return { allowed: false, count: current.count };
@@ -88,15 +81,23 @@ exports.handler = async function (event) {
     return { statusCode: 405, body: 'Method not allowed' };
   }
 
+  const SESSION_SECRET = process.env.SESSION_SECRET;
+  if (!SESSION_SECRET) {
+    return json(500, { error: 'Server is missing SESSION_SECRET. Add it in Netlify: Site settings -> Environment variables.' });
+  }
+  const auth = requireAuth(event, SESSION_SECRET);
+  if (!auth.ok) {
+    return json(401, { error: 'Not authorized' });
+  }
+
   const apiKey = process.env.ANTHROPIC_API_KEY;
   if (!apiKey) {
     return json(500, { error: 'Server is missing ANTHROPIC_API_KEY. Add it in Netlify: Site settings -> Environment variables.' });
   }
 
-  const ip = getClientIp(event);
-  const rate = await checkAndIncrementRateLimit(ip);
+  const rate = await checkAndIncrementRateLimit(auth.email);
   if (!rate.allowed) {
-    return json(429, { error: `Rate limit reached (${RATE_LIMIT_MAX_PER_HOUR} audits/hour per visitor). Try again later.` });
+    return json(429, { error: `Rate limit reached (${RATE_LIMIT_MAX_PER_HOUR} audits/hour). Try again later.` });
   }
 
   let payload;

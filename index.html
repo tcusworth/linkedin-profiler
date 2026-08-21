@@ -298,11 +298,71 @@
     .section-card{break-inside:avoid;border:1px solid #ccc;}
     .edit-on .editable-text{border:none;background:none;padding:0;margin:0;}
   }
+
+  /* ---------- auth gate ---------- */
+  .auth-gate{
+    position:fixed; inset:0; z-index:1000;
+    background:var(--ink); display:flex; align-items:center; justify-content:center;
+    padding:20px;
+  }
+  .auth-card{
+    width:100%; max-width:340px; background:#171f30; border:1px solid #2a3550; border-radius:var(--radius);
+    padding:32px 28px;
+  }
+  .auth-card input[type="password"], .auth-card input[type="email"]{ margin-top:2px; }
+  .auth-card .field-group{ margin-bottom:14px; }
+  .auth-card .err-msg{ margin-top:12px; }
+  @media print{ .auth-gate{ display:none !important; } }
+
+  /* ---------- account / admin ---------- */
+  .account-box{
+    margin-top:20px; padding-top:16px; border-top:1px solid #232d44; font-size:12px; color:#cfd4de;
+  }
+  .account-email{ font-weight:600; color:#e9ecf2; word-break:break-all; margin-bottom:8px; }
+  .account-actions{ display:flex; gap:12px; flex-wrap:wrap; }
+
+  .admin-box{ margin-top:20px; padding-top:16px; border-top:1px solid #232d44; }
+  .user-row{
+    display:flex; align-items:center; gap:8px; background:#1a2336; border:1px solid #2a3550; border-radius:var(--radius);
+    padding:7px 9px; font-size:11.5px; color:#cfd4de; margin-bottom:6px;
+  }
+  .user-row .ur-email{ flex:1; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .user-row .ur-role{ font-family:'JetBrains Mono',monospace; font-size:10px; color:var(--brass-light); text-transform:uppercase; }
+  .user-row button{ background:none; border:none; color:#8b93a1; cursor:pointer; font-size:14px; padding:2px 3px; }
+  .user-row button:hover{ color:var(--signal-weak); }
+  .invite-row{ display:flex; gap:6px; margin-top:8px; }
+  .invite-row input{ flex:1; }
+  .invite-row button{
+    background:var(--brass); color:#191307; border:none; border-radius:var(--radius); padding:0 12px; font-size:12px;
+    font-weight:700; cursor:pointer; flex-shrink:0;
+  }
+  .invite-banner{
+    margin-top:9px; background:#173a2c; border:1px solid #2d6b4c; color:#c9ecd9; padding:9px 11px;
+    border-radius:var(--radius); font-size:11.5px; line-height:1.6; word-break:break-all;
+  }
 </style>
 </head>
 <body>
 
-<div class="app">
+<div class="auth-gate" id="authGate">
+  <div class="auth-card">
+    <p class="wordmark" style="color:#eef0f4;">Signal<span class="dot">.</span></p>
+    <p class="tagline" style="margin-bottom:22px;">LinkedIn conversion audit</p>
+    <div class="field-group">
+      <label class="field-label" for="authEmail" style="color:var(--brass-light);">Email</label>
+      <input type="email" id="authEmail" placeholder="you@example.com" autocomplete="username">
+    </div>
+    <div class="field-group">
+      <label class="field-label" for="authPassword" style="color:var(--brass-light);">Password</label>
+      <input type="password" id="authPassword" placeholder="Enter password" autocomplete="current-password">
+    </div>
+    <button class="run-btn" id="authSubmitBtn">Sign in</button>
+    <div id="authErrBox"></div>
+  </div>
+</div>
+
+<div class="app" id="appRoot" style="display:none;">
+
 
   <!-- ============ LEFT CONTROL PANEL ============ -->
   <aside class="panel">
@@ -369,6 +429,24 @@
     <button class="compare-btn" id="compareBtn" style="display:none;">Compare selected (2)</button>
 
     <div class="session-usage" id="sessionUsage">This session: 0 audits run</div>
+
+    <div class="account-box" id="accountBox">
+      <div class="account-email" id="accountEmail"></div>
+      <div class="account-actions">
+        <button class="link-btn" id="changePasswordBtn">Change password</button>
+        <button class="link-btn" id="logoutBtn">Log out</button>
+      </div>
+    </div>
+
+    <div class="admin-box" id="adminBox" style="display:none;">
+      <div class="panel-section-title"><span>Team</span></div>
+      <div id="userList"></div>
+      <div class="invite-row">
+        <input type="email" id="inviteEmail" placeholder="teammate@example.com">
+        <button id="inviteBtn">Invite</button>
+      </div>
+      <div id="inviteResultBox"></div>
+    </div>
   </aside>
 
   <!-- ============ RIGHT READOUT ============ -->
@@ -383,6 +461,166 @@
 </div>
 
 <script>
+/* ===================== auth (real per-user accounts) ===================== */
+const TOKEN_KEY = 'signal-session-token';
+let appInitialized = false;
+let currentUser = null; // { email, role }
+
+function escapeHtml(s){
+  const d = document.createElement('div');
+  d.textContent = s == null ? '' : String(s);
+  return d.innerHTML;
+}
+
+function getToken(){
+  try { return localStorage.getItem(TOKEN_KEY); }
+  catch (e) { return null; }
+}
+function setToken(t){
+  try { localStorage.setItem(TOKEN_KEY, t); } catch (e) {}
+}
+function clearToken(){
+  try { localStorage.removeItem(TOKEN_KEY); } catch (e) {}
+}
+function authHeaders(){
+  const t = getToken();
+  return t ? { 'Authorization': 'Bearer ' + t } : {};
+}
+
+async function authAction(action, extra){
+  try {
+    const res = await fetch('/.netlify/functions/auth', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...authHeaders() },
+      body: JSON.stringify({ action, ...(extra || {}) })
+    });
+    const body = await res.json().catch(() => ({}));
+    if (!res.ok) return { ok: false, status: res.status, error: body.error || 'Something went wrong' };
+    return { ok: true, ...body };
+  } catch (e) {
+    return { ok: false, error: 'Could not reach the server. Try again.' };
+  }
+}
+
+function showApp(){
+  document.getElementById('authGate').style.display = 'none';
+  document.getElementById('appRoot').style.display = '';
+  if (!appInitialized){ appInitialized = true; initApp(); }
+  else { populateAccountAndAdmin(); }
+}
+function showAuthGate(message){
+  document.getElementById('appRoot').style.display = 'none';
+  document.getElementById('authGate').style.display = 'flex';
+  const errBox = document.getElementById('authErrBox');
+  errBox.innerHTML = message ? `<div class="err-msg">${message.replace(/</g,'&lt;')}</div>` : '';
+  document.getElementById('authEmail').focus();
+}
+function handleAuthExpired(){
+  clearToken();
+  currentUser = null;
+  showAuthGate('Session expired — please sign in again.');
+}
+
+async function attemptLogin(){
+  const email = document.getElementById('authEmail').value.trim();
+  const password = document.getElementById('authPassword').value;
+  if (!email || !password) return;
+  const btn = document.getElementById('authSubmitBtn');
+  btn.disabled = true;
+  const result = await authAction('login', { email, password });
+  btn.disabled = false;
+  if (result.ok){
+    setToken(result.token);
+    currentUser = { email: result.email, role: result.role };
+    showApp();
+  } else {
+    showAuthGate(result.error);
+  }
+}
+document.getElementById('authSubmitBtn').addEventListener('click', attemptLogin);
+document.getElementById('authPassword').addEventListener('keydown', (e) => { if (e.key === 'Enter') attemptLogin(); });
+document.getElementById('authEmail').addEventListener('keydown', (e) => { if (e.key === 'Enter') document.getElementById('authPassword').focus(); });
+
+(async function initialAuthCheck(){
+  const stored = getToken();
+  if (!stored){ showAuthGate(); return; }
+  const result = await authAction('whoami');
+  if (result.ok){
+    currentUser = { email: result.email, role: result.role };
+    showApp();
+  } else {
+    clearToken();
+    showAuthGate('Session expired — please sign in again.');
+  }
+})();
+
+/* ===================== account / admin panel ===================== */
+function populateAccountAndAdmin(){
+  if (!currentUser) return;
+  document.getElementById('accountEmail').textContent = currentUser.email;
+  document.getElementById('adminBox').style.display = currentUser.role === 'admin' ? 'block' : 'none';
+  if (currentUser.role === 'admin') refreshUserList();
+}
+
+document.getElementById('logoutBtn').addEventListener('click', () => {
+  clearToken();
+  currentUser = null;
+  showAuthGate();
+});
+
+document.getElementById('changePasswordBtn').addEventListener('click', async () => {
+  const current = prompt('Current password:');
+  if (!current) return;
+  const next = prompt('New password (at least 8 characters):');
+  if (!next) return;
+  const result = await authAction('change-password', { currentPassword: current, newPassword: next });
+  if (result.status === 401 && result.error !== 'Current password is incorrect'){ handleAuthExpired(); return; }
+  alert(result.ok ? 'Password updated.' : (result.error || 'Could not update password.'));
+});
+
+async function refreshUserList(){
+  const result = await authAction('list-users');
+  const listEl = document.getElementById('userList');
+  if (result.status === 401){ handleAuthExpired(); return; }
+  if (!result.ok || !result.users){ listEl.innerHTML = ''; return; }
+  listEl.innerHTML = result.users.map(u => `
+    <div class="user-row">
+      <span class="ur-email">${escapeHtml(u.email)}</span>
+      <span class="ur-role">${escapeHtml(u.role)}</span>
+      ${u.email !== currentUser.email ? `<button data-email="${escapeHtml(u.email)}" aria-label="Remove user">×</button>` : ''}
+    </div>
+  `).join('');
+  listEl.querySelectorAll('button[data-email]').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      if (!confirm(`Remove ${btn.dataset.email}? They'll lose access immediately.`)) return;
+      const res = await authAction('remove-user', { email: btn.dataset.email });
+      if (res.status === 401){ handleAuthExpired(); return; }
+      refreshUserList();
+    });
+  });
+}
+
+document.getElementById('inviteBtn').addEventListener('click', async () => {
+  const emailEl = document.getElementById('inviteEmail');
+  const email = emailEl.value.trim();
+  const resultBox = document.getElementById('inviteResultBox');
+  if (!email){ return; }
+  const result = await authAction('invite', { email });
+  if (result.status === 401){ handleAuthExpired(); return; }
+  if (!result.ok){
+    resultBox.innerHTML = `<div class="err-msg" style="margin-top:9px;">${escapeHtml(result.error || 'Could not invite that user.')}</div>`;
+    return;
+  }
+  emailEl.value = '';
+  resultBox.innerHTML = `<div class="invite-banner">Share with ${escapeHtml(result.email)} — temporary password: <strong>${escapeHtml(result.tempPassword)}</strong><br>They should change it after signing in (Account → Change password).</div>`;
+  refreshUserList();
+});
+
+/* ===================== app (only runs once authenticated) ===================== */
+function initApp(){
+populateAccountAndAdmin();
+
+
 /* ===================== state ===================== */
 const state = { files: [] };
 let currentAuditId = null;   // id of the audit currently shown, if saved
@@ -409,11 +647,6 @@ const icpProfileSelect = document.getElementById('icpProfileSelect');
 const savedProfileList = document.getElementById('savedProfileList');
 const sessionUsageEl = document.getElementById('sessionUsage');
 
-function escapeHtml(s){
-  const d = document.createElement('div');
-  d.textContent = s == null ? '' : String(s);
-  return d.innerHTML;
-}
 function uid(){ return Date.now().toString(36) + Math.random().toString(36).slice(2,8); }
 function fmtDate(iso){
   const d = new Date(iso);
@@ -439,7 +672,8 @@ function populateTemplates(){
 async function dataGet(action, extraParams){
   const qs = new URLSearchParams({ action, ...(extraParams || {}) });
   try {
-    const res = await fetch('/.netlify/functions/data?' + qs.toString());
+    const res = await fetch('/.netlify/functions/data?' + qs.toString(), { headers: authHeaders() });
+    if (res.status === 401){ handleAuthExpired(); return null; }
     if (!res.ok) return null;
     return await res.json();
   } catch (e) { return null; }
@@ -448,9 +682,10 @@ async function dataPost(body){
   try {
     const res = await fetch('/.netlify/functions/data', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', ...authHeaders() },
       body: JSON.stringify(body)
     });
+    if (res.status === 401){ handleAuthExpired(); return false; }
     return res.ok;
   } catch (e) { return false; }
 }
@@ -692,12 +927,14 @@ async function runAudit(){
 
     const response = await fetch('/.netlify/functions/audit', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', ...authHeaders() },
       body: JSON.stringify({
         system: SYSTEM_PROMPT,
         messages: [ { role: 'user', content } ]
       })
     });
+
+    if (response.status === 401){ handleAuthExpired(); return; }
 
     if (!response.ok){
       let detail = '';
@@ -1235,6 +1472,8 @@ populateTemplates();
 refreshProfileDropdownAndList();
 refreshHistoryList();
 renderSessionUsage();
+
+} // end initApp()
 </script>
 </body>
 </html>
