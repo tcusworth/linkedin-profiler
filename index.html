@@ -1068,6 +1068,7 @@ async function readAnthropicStream(response){
   const reader = response.body.getReader();
   const decoder = new TextDecoder();
   let buffer = '';
+  let rawAll = '';
   let text = '';
   const usage = { input_tokens: 0, output_tokens: 0 };
   let streamError = null;
@@ -1108,14 +1109,19 @@ async function readAnthropicStream(response){
   while (true){
     const { done, value } = await reader.read();
     if (done) break;
-    buffer += decoder.decode(value, { stream: true });
+    const chunk = decoder.decode(value, { stream: true });
+    rawAll += chunk;
+    buffer += chunk;
     drainLines(false);
   }
   buffer += decoder.decode();
   drainLines(true);
 
   if (streamError) throw new Error(streamError);
-  if (!text) throw new Error('The audit came back empty. Try running it again.');
+  if (!text) {
+    console.log('[Signal debug] empty text. Raw stream tail:', rawAll.slice(-800));
+    throw new Error('The audit came back empty. Try running it again.');
+  }
   return { text, usage };
 }
 
@@ -1151,6 +1157,7 @@ async function runAudit(){
     }
 
     const { text: raw, usage } = await readAnthropicStream(response);
+    console.log('[Signal debug] audit raw length:', raw.length, '| first 200:', raw.slice(0,200), '| last 200:', raw.slice(-200));
     if (usage){
       session.calls += 1;
       session.inputTokens += (usage.input_tokens || 0);
