@@ -434,32 +434,37 @@ function populateTemplates(){
 }
 
 /* ===================== storage helpers ===================== */
-async function safeGet(key){
-  try { return localStorage.getItem(key); }
-  catch (e) { return null; }
+// Data now lives server-side (Netlify Blobs, via /.netlify/functions/data)
+// instead of localStorage, so history and saved ICPs sync across devices.
+async function dataGet(action, extraParams){
+  const qs = new URLSearchParams({ action, ...(extraParams || {}) });
+  try {
+    const res = await fetch('/.netlify/functions/data?' + qs.toString());
+    if (!res.ok) return null;
+    return await res.json();
+  } catch (e) { return null; }
 }
-async function safeSet(key, value){
-  try { localStorage.setItem(key, value); return true; }
-  catch (e) { return false; }
-}
-async function safeDelete(key){
-  try { localStorage.removeItem(key); return true; }
-  catch (e) { return false; }
+async function dataPost(body){
+  try {
+    const res = await fetch('/.netlify/functions/data', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body)
+    });
+    return res.ok;
+  } catch (e) { return false; }
 }
 
 async function loadAuditIndex(){
-  const raw = await safeGet('audit-index');
-  if (!raw) return [];
-  try { return JSON.parse(raw); } catch(e){ return []; }
+  const result = await dataGet('index');
+  return (result && result.index) || [];
 }
-async function saveAuditIndex(list){ return safeSet('audit-index', JSON.stringify(list)); }
 
 async function loadIcpProfiles(){
-  const raw = await safeGet('icp-profiles');
-  if (!raw) return [];
-  try { return JSON.parse(raw); } catch(e){ return []; }
+  const result = await dataGet('icp-profiles');
+  return (result && result.profiles) || [];
 }
-async function saveIcpProfiles(list){ return safeSet('icp-profiles', JSON.stringify(list)); }
+async function saveIcpProfiles(list){ return dataPost({ action: 'save-icp-profiles', profiles: list }); }
 
 /* ===================== ICP profile UI ===================== */
 async function refreshProfileDropdownAndList(){
@@ -748,24 +753,18 @@ function renderSessionUsage(){
 
 /* ===================== persistence ===================== */
 async function persistAudit(id, record){
-  await safeSet('audit:' + id, JSON.stringify(record));
-  const index = await loadAuditIndex();
-  index.unshift({ id, clientName: record.clientName, createdAt: record.createdAt, overallScore: computeOverall(record.report.sections, record.report.credibility_signals_score) });
-  await saveAuditIndex(index);
+  const overallScore = computeOverall(record.report.sections, record.report.credibility_signals_score);
+  await dataPost({ action: 'save-audit', record: { ...record, overallScore } });
 }
 
 async function updateSavedAudit(){
   if (!currentAuditId || !currentReport) return;
-  const raw = await safeGet('audit:' + currentAuditId);
-  if (!raw) return;
-  let record;
-  try { record = JSON.parse(raw); } catch(e){ return; }
+  const result = await dataGet('audit', { id: currentAuditId });
+  if (!result || !result.record) return;
+  const record = result.record;
   record.report = currentReport;
-  await safeSet('audit:' + currentAuditId, JSON.stringify(record));
-  // keep index score in sync
-  const index = await loadAuditIndex();
-  const idx = index.find(a => a.id === currentAuditId);
-  if (idx){ idx.overallScore = computeOverall(currentReport.sections, currentReport.credibility_signals_score); await saveAuditIndex(index); }
+  record.overallScore = computeOverall(currentReport.sections, currentReport.credibility_signals_score);
+  await dataPost({ action: 'save-audit', record });
 }
 
 async function refreshHistoryList(){
@@ -809,9 +808,7 @@ async function refreshHistoryList(){
   historyListEl.querySelectorAll('.history-del').forEach(btn => {
     btn.addEventListener('click', async (e) => {
       e.stopPropagation();
-      await safeDelete('audit:' + btn.dataset.id);
-      const idx = await loadAuditIndex();
-      await saveAuditIndex(idx.filter(a => a.id !== btn.dataset.id));
+      await dataPost({ action: 'delete-audit', id: btn.dataset.id });
       selectedForCompare.delete(btn.dataset.id);
       compareBtn.style.display = selectedForCompare.size === 2 ? 'block' : 'none';
       refreshHistoryList();
@@ -820,10 +817,9 @@ async function refreshHistoryList(){
 }
 
 async function loadAuditFromHistory(id){
-  const raw = await safeGet('audit:' + id);
-  if (!raw) return;
-  let record;
-  try { record = JSON.parse(raw); } catch(e){ return; }
+  const result = await dataGet('audit', { id });
+  if (!result || !result.record) return;
+  const record = result.record;
   currentAuditId = record.id;
   currentReport = record.report;
   currentInputs = { icp: record.icp, result: record.result, offer: record.offer, clientName: record.clientName };
@@ -839,9 +835,9 @@ async function loadAuditFromHistory(id){
 compareBtn.addEventListener('click', async () => {
   const ids = Array.from(selectedForCompare);
   if (ids.length !== 2) return;
-  const [rawA, rawB] = await Promise.all([safeGet('audit:' + ids[0]), safeGet('audit:' + ids[1])]);
-  if (!rawA || !rawB) return;
-  let a = JSON.parse(rawA), b = JSON.parse(rawB);
+  const [resultA, resultB] = await Promise.all([dataGet('audit', { id: ids[0] }), dataGet('audit', { id: ids[1] })]);
+  if (!resultA || !resultA.record || !resultB || !resultB.record) return;
+  let a = resultA.record, b = resultB.record;
   // order chronologically (older first = "before")
   if (new Date(a.createdAt) > new Date(b.createdAt)) { [a,b] = [b,a]; }
   renderCompare(a, b);
