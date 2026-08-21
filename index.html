@@ -303,15 +303,27 @@
   .auth-gate{
     position:fixed; inset:0; z-index:1000;
     background:var(--ink); display:flex; align-items:center; justify-content:center;
-    padding:20px;
+    padding:24px;
   }
   .auth-card{
-    width:100%; max-width:340px; background:#171f30; border:1px solid #2a3550; border-radius:var(--radius);
-    padding:32px 28px;
+    width:100%; max-width:440px; background:#171f30; border:1px solid #2a3550; border-radius:4px;
+    padding:44px 40px;
   }
-  .auth-card input[type="password"], .auth-card input[type="email"]{ margin-top:2px; }
-  .auth-card .field-group{ margin-bottom:14px; }
-  .auth-card .err-msg{ margin-top:12px; }
+  .auth-card .wordmark{ font-size:34px; }
+  .auth-card .tagline{ font-size:13px; }
+  .auth-card .field-label{ font-size:13px; margin-bottom:9px; }
+  .auth-card input[type="password"], .auth-card input[type="email"]{
+    width:100%; box-sizing:border-box;
+    background:#1a2336; border:1px solid #2a3550; color:#eef0f4; border-radius:4px;
+    padding:14px 15px; font-family:'Inter',sans-serif; font-size:16px; line-height:1.5;
+    margin-top:2px; transition:border-color 150ms ease, background 150ms ease;
+  }
+  .auth-card input[type="password"]:focus, .auth-card input[type="email"]:focus{
+    outline:none; border-color:var(--brass); background:#1e2740;
+  }
+  .auth-card .field-group{ margin-bottom:20px; }
+  .auth-card .run-btn{ padding:16px 18px; font-size:15.5px; margin-top:6px; }
+  .auth-card .err-msg{ margin-top:14px; font-size:13px; }
   @media print{ .auth-gate{ display:none !important; } }
 
   /* ---------- account / admin ---------- */
