@@ -2,14 +2,14 @@
 // Blobs, namespaced per authenticated user (via their email from the
 // session token) so each person's history and ICPs are private to them.
 
-const { getStore } = require('@netlify/blobs');
+const { getNamedStore } = require('./lib/blobs');
 const { requireAuth } = require('./lib/auth');
 
 function json(statusCode, obj) {
   return { statusCode, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(obj) };
 }
 function dataStore() {
-  return getStore('audit-data');
+  return getNamedStore('audit-data');
 }
 function ns(email, key) {
   return `${email}::${key}`;

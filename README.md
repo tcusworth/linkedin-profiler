@@ -59,6 +59,10 @@ audits. Invite-only accounts, hashed passwords, private data per user.
      tokens — treat it like a password; changing it later logs everyone out)
    - `ADMIN_BOOTSTRAP_EMAIL` and `ADMIN_BOOTSTRAP_PASSWORD` — the email and
      password for your first (admin) account
+   - `BLOBS_SITE_ID` and `BLOBS_TOKEN` — see below. Only needed if you hit
+     a `MissingBlobsEnvironmentError` in the function logs; some deploys
+     don't get Netlify's automatic Blobs context injected, so this passes
+     it explicitly instead.
 2. Redeploy (or trigger a new deploy) so the functions pick up the variables
    and so the build step (`npm install`, set in `netlify.toml`) installs
    `@netlify/blobs`.
@@ -71,6 +75,20 @@ audits. Invite-only accounts, hashed passwords, private data per user.
 Without `ANTHROPIC_API_KEY`, "Run audit" returns a clear error. Without
 `SESSION_SECRET`, every auth-related request returns a clear 500 rather than
 silently failing open.
+
+### Getting BLOBS_SITE_ID and BLOBS_TOKEN
+
+Only needed if the function logs show `MissingBlobsEnvironmentError`
+(Site → Logs & metrics → Functions → click a function → real-time log).
+
+- `BLOBS_SITE_ID`: **Site settings → General → Site details → Site ID**
+  (a UUID, copy it as-is)
+- `BLOBS_TOKEN`: a Netlify **personal access token**. Click your avatar
+  (top right) → **User settings → Applications → Personal access tokens →
+  New access token**. Give it a name, copy the token immediately (it's only
+  shown once).
+
+Add both as env vars, then **Deploys → Trigger deploy → Deploy site**.
 
 ## Local development
 

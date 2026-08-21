@@ -9,14 +9,14 @@
 // any other account (the bootstrap env vars are only consulted while no
 // users exist yet).
 
-const { getStore } = require('@netlify/blobs');
+const { getNamedStore } = require('./lib/blobs');
 const { hashPassword, verifyPasswordHash, createSessionToken, requireAuth } = require('./lib/auth');
 
 function json(statusCode, obj) {
   return { statusCode, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(obj) };
 }
 function normEmail(e) { return (e || '').trim().toLowerCase(); }
-function usersStore() { return getStore('users'); }
+function usersStore() { return getNamedStore('users'); }
 
 const LOGIN_RATE_MAX = 10;
 const LOGIN_RATE_WINDOW_MS = 15 * 60 * 1000;
@@ -31,7 +31,7 @@ function getClientIp(event) {
 
 async function checkLoginRateLimit(ip) {
   try {
-    const store = getStore('rate-limits');
+    const store = getNamedStore('rate-limits');
     const bucket = Math.floor(Date.now() / LOGIN_RATE_WINDOW_MS);
     const key = `login:${ip}:${bucket}`;
     const current = (await store.get(key, { type: 'json' })) || { count: 0 };

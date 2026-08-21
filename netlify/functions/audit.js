@@ -6,7 +6,7 @@
 // function invocations) and retries once/twice on transient Anthropic
 // overload responses before giving up.
 
-const { getStore } = require('@netlify/blobs');
+const { getNamedStore } = require('./lib/blobs');
 const { requireAuth } = require('./lib/auth');
 
 const RATE_LIMIT_MAX_PER_HOUR = 20;
@@ -21,7 +21,7 @@ function sleep(ms) { return new Promise((resolve) => setTimeout(resolve, ms)); }
 
 async function checkAndIncrementRateLimit(userEmail) {
   try {
-    const store = getStore('rate-limits');
+    const store = getNamedStore('rate-limits');
     const bucket = Math.floor(Date.now() / RATE_LIMIT_WINDOW_MS);
     const key = `${userEmail}:${bucket}`;
     const current = (await store.get(key, { type: 'json' })) || { count: 0 };
