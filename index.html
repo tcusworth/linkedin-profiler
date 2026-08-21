@@ -126,6 +126,39 @@
   .run-btn:disabled{background:#3a4258;color:#767f92;cursor:not-allowed;}
 
   .panel-divider{border-top:1px solid #232d44;margin:24px 0 18px;}
+  .weights-chevron{ color:var(--slate); transition:transform 150ms ease; display:inline-block; }
+  .weights-chevron.open{ transform:rotate(90deg); }
+  .weight-row{ display:flex; align-items:center; gap:10px; margin-bottom:10px; }
+  .weight-row label{ flex:1; font-size:11.5px; color:#cfd4de; }
+  .weight-row input[type="range"]{ flex:1.4; accent-color:var(--brass); cursor:pointer; }
+  .weight-row .weight-val{ font-family:'JetBrains Mono',monospace; font-size:11px; color:var(--brass-light); width:26px; text-align:right; }
+  .weights-actions{ display:flex; gap:12px; margin-top:6px; }
+
+  /* ---------- copy modal ---------- */
+  .modal-overlay{
+    position:fixed; inset:0; z-index:2000; background:rgba(20,28,43,0.72);
+    display:flex; align-items:center; justify-content:center; padding:24px;
+  }
+  .modal-card{
+    background:var(--paper); border-radius:6px; width:100%; max-width:640px;
+    max-height:88vh; overflow:hidden; display:flex; flex-direction:column;
+    box-shadow:0 24px 60px rgba(0,0,0,0.4);
+  }
+  .modal-head{
+    display:flex; align-items:center; justify-content:space-between;
+    padding:18px 22px; border-bottom:1px solid var(--line);
+  }
+  .modal-head h3{ font-family:'Fraunces',serif; font-weight:600; font-size:17px; margin:0; color:var(--ink); }
+  .modal-close{ background:none; border:none; font-size:22px; color:var(--slate); cursor:pointer; line-height:1; padding:0 4px; }
+  .modal-close:hover{ color:var(--ink); }
+  .modal-body{ padding:20px 22px; overflow-y:auto; }
+  .copy-block{ border:1px solid var(--line); border-radius:4px; margin-bottom:16px; overflow:hidden; }
+  .copy-block-head{ display:flex; align-items:center; justify-content:space-between; padding:9px 13px; background:var(--parchment); border-bottom:1px solid var(--line); }
+  .copy-block-label{ font-family:'JetBrains Mono',monospace; font-size:10.5px; font-weight:600; text-transform:uppercase; letter-spacing:0.04em; color:var(--brass); }
+  .copy-btn{ background:var(--ink); color:#fff; border:none; border-radius:3px; font-size:11px; font-weight:600; padding:5px 12px; cursor:pointer; }
+  .copy-btn:hover{ background:var(--ink-2); }
+  .copy-block-body{ padding:13px; font-size:13.5px; line-height:1.65; color:#333; white-space:normal; }
+  .modal-foot-note{ font-size:11.5px; color:var(--slate-light); line-height:1.5; margin:4px 0 0; }
   .panel-section-title{
     font-size:11px;font-weight:700;letter-spacing:0.05em;text-transform:uppercase;color:#9aa4b6;margin:0 0 12px;
     display:flex;justify-content:space-between;align-items:center;
@@ -146,6 +179,8 @@
     font-family:'JetBrains Mono',monospace;font-size:11px;font-weight:700;padding:2px 7px;border-radius:20px;flex-shrink:0;
   }
   .history-del{background:none;border:none;color:#5c6478;cursor:pointer;font-size:14px;padding:2px 3px;flex-shrink:0;}
+  .history-reaudit{background:none;border:none;color:#5c6478;cursor:pointer;font-size:14px;padding:2px 3px;flex-shrink:0;}
+  .history-reaudit:hover{color:var(--brass-light);}
   .history-del:hover{color:var(--signal-weak);}
   .compare-btn{
     width:100%;margin-top:10px;background:#1a2336;border:1px solid var(--brass);color:var(--brass-light);
@@ -434,6 +469,13 @@
     <div id="errBox"></div>
 
     <div class="panel-divider"></div>
+    <div class="panel-section-title" id="weightsToggle" style="cursor:pointer;">
+      <span>Scoring weights</span>
+      <span class="weights-chevron" id="weightsChevron">▸</span>
+    </div>
+    <div id="weightsPanel" style="display:none;"></div>
+
+    <div class="panel-divider"></div>
     <div class="panel-section-title">
       <span>Audit history</span>
     </div>
@@ -629,7 +671,7 @@ document.getElementById('inviteBtn').addEventListener('click', async () => {
 });
 
 /* ===================== app (only runs once authenticated) ===================== */
-function initApp(){
+async function initApp(){
 populateAccountAndAdmin();
 
 
@@ -934,6 +976,18 @@ function fileToContentBlock(entry){
 }
 
 /* ===================== audit prompt + run ===================== */
+const COPY_SYSTEM_PROMPT = `You are a senior LinkedIn copywriter. You'll be given an audit of a LinkedIn profile (its diagnostic findings and suggested rewrites) plus the ideal-client brief it was measured against. Turn the diagnostic suggestions into finished, paste-ready copy the person can drop straight into LinkedIn — not analysis, not "here's what's weak", just the final words.
+
+Produce polished final versions of: the headline (one recommended line, under 220 chars), the About section (a complete rewrite, first-person, natural voice, 3-5 short paragraphs, opening with the reader's situation, closing with a clear call to action), and 2-3 short call-to-action lines they could use in the banner or a post.
+
+Write in a warm, credible, specific voice — no generic hype, no buzzwords, no em-dash-heavy AI cadence. Match the seniority of the ideal client. Return ONLY valid JSON, no markdown fences, in exactly this shape:
+
+{
+  "headline": "the finished headline line",
+  "about": "the finished About section, with \\n\\n between paragraphs",
+  "ctas": ["cta line 1", "cta line 2", "cta line 3"]
+}`;
+
 const SYSTEM_PROMPT = `You are an expert LinkedIn profile auditor. You assess how well a LinkedIn profile converts cold visitors into inbound enquiries from a specific stated ideal client (ICP), then produce scored, section-by-section findings with concrete rewrites.
 
 Score every section 0-10. Higher = more likely to convert the stated ICP. Judge everything against the ICP brief provided — a profile is not good or bad in the abstract, only effective or ineffective at converting that specific visitor.
@@ -1059,6 +1113,235 @@ async function runAudit(){
 }
 runBtn.addEventListener('click', runAudit);
 
+/* ===================== draft final copy from an audit ===================== */
+function buildCopyBrief(){
+  const d = currentReport || {};
+  const inp = currentInputs || {};
+  const s = d.sections || {};
+  const parts = [];
+  parts.push('IDEAL CLIENT:\n' + (inp.icp || ''));
+  if (inp.result) parts.push('SPECIFIC RESULT I CREATE FOR THEM:\n' + inp.result);
+  if (inp.offer) parts.push('MY PAID OFFER:\n' + inp.offer);
+  parts.push('AUDIT FINDINGS TO TURN INTO FINISHED COPY:');
+  if (s.headline){
+    parts.push('Headline issues: ' + ((s.headline.issues||[]).join('; ')));
+    parts.push('Headline rewrite options: ' + ((s.headline.rewrites||[]).join(' | ')));
+  }
+  if (s.about){
+    parts.push('About verdict: ' + (s.about.verdict||''));
+    parts.push('About rewritten opening: ' + (s.about.rewritten_opening||''));
+    parts.push('About vague proof to fix: ' + ((s.about.vague_proof||[]).join('; ')));
+  }
+  if (s.cta){
+    parts.push('CTA suggestions: ' + ((s.cta.rewrites||[]).map(r => (r.location?r.location+': ':'')+(r.text||'')).join(' | ')));
+  }
+  parts.push('\nWrite the finished headline, About section, and CTA lines as JSON.');
+  return parts.join('\n\n');
+}
+
+async function draftFinalCopy(){
+  if (!currentReport) return;
+  const btn = document.getElementById('draftCopyBtn');
+  const original = btn.textContent;
+  btn.disabled = true;
+  btn.textContent = 'Drafting…';
+  try {
+    const response = await fetch('/.netlify/functions/audit', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...authHeaders() },
+      body: JSON.stringify({
+        system: COPY_SYSTEM_PROMPT,
+        messages: [ { role: 'user', content: [ { type: 'text', text: buildCopyBrief() } ] } ]
+      })
+    });
+    if (response.status === 401){ handleAuthExpired(); return; }
+    if (!response.ok){
+      let detail = '';
+      try { const eb = await response.json(); detail = eb.error ? ' — ' + eb.error : ''; } catch(e){}
+      throw new Error('Request failed (' + response.status + ')' + detail);
+    }
+    const data = await response.json();
+    const textParts = (data.content || []).filter(b => b.type === 'text').map(b => b.text);
+    const raw = textParts.join('\n').trim();
+    const cleaned = raw.replace(/^```json\s*/i,'').replace(/^```\s*/i,'').replace(/```\s*$/i,'').trim();
+    let parsed;
+    try { parsed = JSON.parse(cleaned); }
+    catch(e){ throw new Error('Could not parse the drafted copy. Try again.'); }
+    showCopyModal(parsed);
+  } catch (err){
+    alert(err.message || 'Could not draft copy.');
+  } finally {
+    btn.disabled = false;
+    btn.textContent = original;
+  }
+}
+
+function copyBlock(id, text){
+  return `<div class="copy-block">
+    <div class="copy-block-head"><span class="copy-block-label">${escapeHtml(id)}</span><button class="copy-btn" data-copy="${escapeHtml(text).replace(/"/g,'&quot;')}">Copy</button></div>
+    <div class="copy-block-body">${escapeHtml(text).replace(/\n/g,'<br>')}</div>
+  </div>`;
+}
+
+function showCopyModal(copy){
+  let overlay = document.getElementById('copyModalOverlay');
+  if (overlay) overlay.remove();
+  overlay = document.createElement('div');
+  overlay.id = 'copyModalOverlay';
+  overlay.className = 'modal-overlay';
+  const ctas = (copy.ctas||[]).map((c,i) => copyBlock('CTA option '+(i+1), c)).join('');
+  overlay.innerHTML = `
+    <div class="modal-card">
+      <div class="modal-head">
+        <h3>Paste-ready copy</h3>
+        <button class="modal-close" id="copyModalClose" aria-label="Close">×</button>
+      </div>
+      <div class="modal-body">
+        ${copy.headline ? copyBlock('Headline', copy.headline) : ''}
+        ${copy.about ? copyBlock('About section', copy.about) : ''}
+        ${ctas}
+        <p class="modal-foot-note">Generated from this audit's findings. Review and tweak before sending to a client — it's a strong draft, not final sign-off.</p>
+      </div>
+    </div>`;
+  document.body.appendChild(overlay);
+  overlay.addEventListener('click', (e) => { if (e.target === overlay) overlay.remove(); });
+  document.getElementById('copyModalClose').addEventListener('click', () => overlay.remove());
+  overlay.querySelectorAll('.copy-btn').forEach(b => {
+    b.addEventListener('click', () => {
+      const txt = b.getAttribute('data-copy').replace(/&quot;/g,'"');
+      navigator.clipboard.writeText(txt).then(() => {
+        const orig = b.textContent; b.textContent = 'Copied'; setTimeout(() => { b.textContent = orig; }, 1200);
+      }).catch(() => {});
+    });
+  });
+}
+
+/* ===================== client-facing branded report ===================== */
+function esc(s){ return escapeHtml(s); }
+
+function openClientReport(){
+  if (!currentReport) return;
+  const d = currentReport;
+  const inp = currentInputs || {};
+  const sections = d.sections || {};
+  const overall = computeOverall(sections, d.credibility_signals_score);
+  const label = overallLabel(overall);
+  const prepared = inp.clientName || 'LinkedIn profile';
+  const today = new Date().toLocaleDateString(undefined, { year:'numeric', month:'long', day:'numeric' });
+
+  const sectionMeta = [
+    { key:'banner', title:'First impression' },
+    { key:'headline', title:'Headline' },
+    { key:'about', title:'About section' },
+    { key:'featured', title:'Featured' },
+    { key:'proof_trust', title:'Proof & trust' },
+    { key:'cta', title:'Call to action' },
+  ];
+
+  function bullets(arr){
+    if (!arr || !arr.length) return '';
+    return '<ul>' + arr.map(x => `<li>${esc(x)}</li>`).join('') + '</ul>';
+  }
+
+  function sectionHtml(m){
+    const s = sections[m.key] || {};
+    if (typeof s.score !== 'number') return '';
+    let inner = '';
+    if (m.key === 'banner'){
+      if (s.change && s.change.length) inner += '<p class="lead">What to change</p>' + bullets(s.change);
+      if (s.recommendation) inner += `<div class="rec">${esc(s.recommendation)}</div>`;
+    } else if (m.key === 'headline'){
+      if (s.issues && s.issues.length) inner += bullets(s.issues);
+      if (s.rewrites && s.rewrites.length) inner += '<p class="lead">Suggested directions</p>' + s.rewrites.map(r => `<div class="rec">${esc(r)}</div>`).join('');
+    } else if (m.key === 'about'){
+      if (s.verdict) inner += `<p>${esc(s.verdict)}</p>`;
+      if (s.rewritten_opening) inner += '<p class="lead">Suggested opening</p><div class="rec">' + esc(s.rewritten_opening) + '</div>';
+      if (s.vague_proof && s.vague_proof.length) inner += '<p class="lead">Strengthen these claims</p>' + bullets(s.vague_proof);
+    } else if (m.key === 'featured'){
+      if (s.current_state) inner += `<p>${esc(s.current_state)}</p>`;
+      if (s.recommended_order && s.recommended_order.length) inner += '<p class="lead">Recommended order</p>' + bullets(s.recommended_order);
+      if (s.suggested_asset_title) inner += `<div class="rec"><strong>${esc(s.suggested_asset_title)}</strong><br>${esc(s.suggested_asset_body||'')}</div>`;
+    } else if (m.key === 'proof_trust'){
+      if (s.rows && s.rows.length) inner += '<table><thead><tr><th>Section</th><th>Status</th><th>Fix</th></tr></thead><tbody>' + s.rows.map(r => `<tr><td>${esc(r.section||'')}</td><td>${esc(r.status||'')}</td><td>${esc(r.fix||'')}</td></tr>`).join('') + '</tbody></table>';
+    } else if (m.key === 'cta'){
+      if (s.missing_in && s.missing_in.length) inner += '<p class="lead">Missing in</p>' + bullets(s.missing_in);
+      if (s.rewrites && s.rewrites.length) inner += s.rewrites.map(r => `<div class="rec">${r.location?'<strong>'+esc(r.location)+':</strong> ':''}${esc(r.text||'')}</div>`).join('');
+    }
+    const sc = s.score;
+    const col = sc >= 7 ? '#3f7d58' : sc >= 4 ? '#c08a28' : '#b4483a';
+    return `<section class="sec">
+      <div class="sec-head"><h2>${esc(m.title)}</h2><span class="sec-score" style="color:${col};border-color:${col}">${sc}/10</span></div>
+      ${inner}
+    </section>`;
+  }
+
+  const priorities = (d.top_priorities||[]).map((p,i) => `<div class="pri"><span class="pri-n">${i+1}</span><div><h4>${esc(p.title||'')}</h4><p>${esc(p.why||'')}</p></div></div>`).join('');
+
+  const html = `<!DOCTYPE html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>LinkedIn Profile Review — ${esc(prepared)}</title>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,600;9..144,700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root{ --ink:#141c2b; --brass:#b8862e; --slate:#5b6472; --line:#e6e1d6; }
+  *{box-sizing:border-box;}
+  body{ margin:0; background:#f4f2ee; color:#222; font-family:'Inter',sans-serif; -webkit-font-smoothing:antialiased; }
+  .page{ max-width:800px; margin:0 auto; background:#fff; padding:56px 60px 72px; }
+  .brand{ font-family:'Fraunces',serif; font-weight:700; font-size:15px; color:var(--ink); letter-spacing:0.02em; }
+  .brand .accent{ color:var(--brass); }
+  .doc-title{ font-family:'Fraunces',serif; font-weight:600; font-size:30px; color:var(--ink); margin:6px 0 2px; }
+  .doc-sub{ font-size:13px; color:var(--slate); margin:0 0 24px; }
+  .rule{ height:2px; background:var(--brass); margin:0 0 28px; }
+  .summary{ font-size:14.5px; line-height:1.7; color:#333; margin:0 0 26px; }
+  .gauge{ display:flex; align-items:center; gap:22px; border:1px solid var(--line); border-radius:6px; padding:22px 26px; margin-bottom:32px; }
+  .gauge-num{ font-family:'Fraunces',serif; font-weight:700; font-size:46px; line-height:1; color:${label.color}; }
+  .gauge-den{ font-size:13px; color:var(--slate); }
+  .gauge-label{ font-size:12px; font-weight:700; letter-spacing:0.06em; text-transform:uppercase; color:${label.color}; }
+  .gauge-note{ font-size:12.5px; color:var(--slate); margin-top:3px; }
+  h2{ font-family:'Fraunces',serif; font-weight:600; font-size:19px; color:var(--ink); margin:0; }
+  .sec{ border-top:1px solid var(--line); padding:22px 0; }
+  .sec-head{ display:flex; align-items:center; justify-content:space-between; margin-bottom:10px; }
+  .sec-score{ font-size:12px; font-weight:700; border:1px solid; border-radius:20px; padding:2px 10px; }
+  .lead{ font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:0.04em; color:var(--brass); margin:14px 0 6px; }
+  ul{ margin:6px 0; padding-left:20px; } li{ font-size:13.5px; line-height:1.6; margin-bottom:4px; }
+  p{ font-size:13.5px; line-height:1.65; }
+  .rec{ background:#faf7ef; border-left:3px solid var(--brass); padding:11px 14px; border-radius:3px; font-size:13.5px; line-height:1.6; margin:8px 0; }
+  table{ width:100%; border-collapse:collapse; font-size:12.5px; margin-top:8px; }
+  th{ text-align:left; font-size:10.5px; text-transform:uppercase; letter-spacing:0.04em; color:var(--slate); border-bottom:1.5px solid var(--ink); padding:0 8px 7px 0; }
+  td{ padding:8px 8px 8px 0; border-bottom:1px solid var(--line); vertical-align:top; line-height:1.5; }
+  .priorities{ margin-top:34px; }
+  .priorities h3{ font-family:'Fraunces',serif; font-weight:600; font-size:18px; color:var(--ink); margin:0 0 14px; }
+  .pri{ display:flex; gap:14px; background:var(--ink); color:#eef0f4; border-radius:5px; padding:16px 18px; margin-bottom:10px; }
+  .pri-n{ font-family:'Fraunces',serif; font-size:22px; font-weight:600; color:var(--brass); }
+  .pri h4{ margin:0 0 5px; font-size:14px; } .pri p{ margin:0; font-size:12.5px; color:#c3c8d4; line-height:1.6; }
+  .foot{ margin-top:34px; padding-top:16px; border-top:1px solid var(--line); font-size:11px; color:var(--slate); line-height:1.6; }
+  .print-bar{ position:fixed; top:0; left:0; right:0; background:var(--ink); color:#fff; padding:10px 20px; display:flex; justify-content:space-between; align-items:center; font-size:13px; }
+  .print-bar button{ background:var(--brass); color:#191307; border:none; border-radius:3px; padding:8px 16px; font-weight:700; font-size:13px; cursor:pointer; }
+  @media print{ .print-bar{ display:none; } body{ background:#fff; } .page{ padding:0; max-width:none; } .sec, .pri{ break-inside:avoid; } }
+</style></head>
+<body>
+  <div class="print-bar"><span>Ready to print or save as PDF</span><button onclick="window.print()">Print / Save PDF</button></div>
+  <div class="page" style="margin-top:52px;">
+    <div class="brand">Flatirons Creative Studio<span class="accent">.</span></div>
+    <h1 class="doc-title">LinkedIn Profile Review</h1>
+    <p class="doc-sub">Prepared for ${esc(prepared)} &middot; ${today}</p>
+    <div class="rule"></div>
+    <div class="gauge">
+      <div><div class="gauge-num">${overall}</div><div class="gauge-den">out of 100</div></div>
+      <div><div class="gauge-label">${label.text}</div><div class="gauge-note">${esc(d.overall_summary||'')}</div></div>
+    </div>
+    ${sectionMeta.map(sectionHtml).join('')}
+    ${priorities ? `<div class="priorities"><h3>Where to start</h3>${priorities}</div>` : ''}
+    <div class="foot">Prepared by Flatirons Creative Studio. This review assesses how well the profile converts the right visitors into enquiries; recommendations are a starting point for a conversation, not a guarantee of results.</div>
+  </div>
+</body></html>`;
+
+  const w = window.open('', '_blank');
+  if (!w){ alert('Please allow pop-ups for this site to open the client report.'); return; }
+  w.document.write(html);
+  w.document.close();
+}
+
+
+
 function renderSessionUsage(){
   sessionUsageEl.innerHTML = `This session: ${session.calls} audit${session.calls===1?'':'s'} run<br>~${session.inputTokens.toLocaleString()} input / ${session.outputTokens.toLocaleString()} output tokens<br><span style="color:#4a5268">Check console.anthropic.com for exact billing</span>`;
 }
@@ -1094,12 +1377,19 @@ async function refreshHistoryList(){
         <div class="history-date">${fmtDate(a.createdAt)}</div>
       </div>
       <span class="history-score" style="color:${scoreColor(a.overallScore/10)};background:${scoreBg(a.overallScore/10)}">${a.overallScore}</span>
+      <button class="history-reaudit" data-id="${a.id}" title="Re-audit with the same ideal client" aria-label="Re-audit">↻</button>
       <button class="history-del" data-id="${a.id}" aria-label="Delete audit">×</button>
     </div>
   `).join('');
 
   historyListEl.querySelectorAll('.history-main').forEach(el => {
     el.addEventListener('click', () => loadAuditFromHistory(el.dataset.id));
+  });
+  historyListEl.querySelectorAll('.history-reaudit').forEach(btn => {
+    btn.addEventListener('click', async (e) => {
+      e.stopPropagation();
+      await startReauditFromHistory(btn.dataset.id);
+    });
   });
   historyListEl.querySelectorAll('input[type="checkbox"]').forEach(cb => {
     cb.addEventListener('change', () => {
@@ -1144,6 +1434,36 @@ async function loadAuditFromHistory(id){
   renderReport(currentReport, currentInputs);
 }
 
+// Re-audit: reuse the same ICP/result/offer/client name from a past audit,
+// but clear the report and uploaded files so the user drops in fresh
+// screenshots and runs again. The new run saves as its own history entry,
+// so the two are comparable via the compare view.
+async function startReauditFromHistory(id){
+  const result = await dataGet('audit', { id });
+  if (!result || !result.record) return;
+  const record = result.record;
+  clientNameEl.value = record.clientName || '';
+  icpEl.value = record.icp || '';
+  resultEl.value = record.result || '';
+  offerEl.value = record.offer || '';
+  // fresh capture: clear files, report, and the "currently showing" pointers
+  state.files = [];
+  renderFileList();
+  checkFileSizes();
+  currentAuditId = null;
+  currentReport = null;
+  currentInputs = null;
+  editMode = false;
+  updateRunButton();
+  showEmpty();
+  readout.innerHTML = `
+    <div class="empty-state">
+      <svg viewBox="0 0 24 24" fill="none" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12h4l3 8 4-16 3 8h4"/></svg>
+      <h2>Re-auditing ${escapeHtml(record.clientName || 'this profile')}</h2>
+      <p>Same ideal client loaded. Upload the updated profile screenshots on the left and Run audit — the new result saves separately so you can compare before/after.</p>
+    </div>`;
+}
+
 compareBtn.addEventListener('click', async () => {
   const ids = Array.from(selectedForCompare);
   if (ids.length !== 2) return;
@@ -1182,15 +1502,32 @@ function scoreBg(score){
   if (score >= 4) return '#f6ecda';
   return '#f5e3e0';
 }
-const WEIGHTS = { banner:1, headline:2, about:2, featured:1.5, proof_trust:1.5, cta:1 };
+const DEFAULT_WEIGHTS = { banner:1, headline:2, about:2, featured:1.5, proof_trust:1.5, cta:1, credibility:1 };
+let WEIGHTS = { ...DEFAULT_WEIGHTS };
+
+async function loadWeights(){
+  const result = await dataGet('weights');
+  if (result && result.weights && typeof result.weights === 'object'){
+    WEIGHTS = { ...DEFAULT_WEIGHTS, ...result.weights };
+  } else {
+    WEIGHTS = { ...DEFAULT_WEIGHTS };
+  }
+}
+async function saveWeights(){
+  await dataPost({ action: 'save-weights', weights: WEIGHTS });
+}
+
 function computeOverall(sections, credScore){
   sections = sections || {};
   let earned = 0, possible = 0;
-  for (const key in WEIGHTS){
+  const SECTION_KEYS = ['banner','headline','about','featured','proof_trust','cta'];
+  for (const key of SECTION_KEYS){
+    const w = WEIGHTS[key];
     const s = sections[key] && sections[key].score;
-    if (typeof s === 'number'){ earned += s * WEIGHTS[key] * 10; possible += 10 * WEIGHTS[key] * 10; }
+    if (typeof s === 'number' && w > 0){ earned += s * w * 10; possible += 10 * w * 10; }
   }
-  if (typeof credScore === 'number'){ earned += credScore * 10; possible += 100; }
+  const cw = WEIGHTS.credibility;
+  if (typeof credScore === 'number' && cw > 0){ earned += credScore * cw * 10; possible += 10 * cw * 10; }
   if (possible === 0) return 0;
   return Math.round((earned / possible) * 100);
 }
@@ -1274,6 +1611,8 @@ function renderReport(d, inputs){
       <span class="report-prepared-for">${escapeHtml(preparedFor)}</span>
     </div>
     <div class="toolbar-actions">
+      <button class="tb-btn" id="clientReportBtn">Client report</button>
+      <button class="tb-btn" id="draftCopyBtn">Draft final copy</button>
       <button class="tb-btn ${editMode?'active':''}" id="editToggleBtn">${editMode ? 'Done editing' : 'Edit rewrites'}</button>
       <button class="tb-btn" id="exportJsonBtn">Export JSON</button>
       <button class="tb-btn" id="importJsonBtn">Import JSON</button>
@@ -1377,6 +1716,8 @@ function renderReport(d, inputs){
   });
   document.getElementById('exportJsonBtn').addEventListener('click', exportCurrentJson);
   document.getElementById('importJsonBtn').addEventListener('click', importJson);
+  document.getElementById('draftCopyBtn').addEventListener('click', draftFinalCopy);
+  document.getElementById('clientReportBtn').addEventListener('click', openClientReport);
 
   bindEditableEvents();
 }
@@ -1542,7 +1883,57 @@ function renderCompare(a, b){
   document.getElementById('newAuditBtn').addEventListener('click', showEmpty);
 }
 
+/* ===================== scoring weights panel ===================== */
+const WEIGHT_LABELS = {
+  headline: 'Headline', about: 'About', featured: 'Featured',
+  proof_trust: 'Proof & Trust', banner: 'Banner', cta: 'CTA', credibility: 'Credibility'
+};
+const WEIGHT_ORDER = ['headline','about','featured','proof_trust','banner','cta','credibility'];
+
+function renderWeightsPanel(){
+  const panel = document.getElementById('weightsPanel');
+  panel.innerHTML = WEIGHT_ORDER.map(key => `
+    <div class="weight-row">
+      <label for="w-${key}">${WEIGHT_LABELS[key]}</label>
+      <input type="range" id="w-${key}" min="0" max="3" step="0.5" value="${WEIGHTS[key]}" data-key="${key}">
+      <span class="weight-val" id="wv-${key}">${Number(WEIGHTS[key]).toFixed(1)}</span>
+    </div>
+  `).join('') + `
+    <div class="weights-actions">
+      <button class="link-btn" id="weightsResetBtn">Reset to defaults</button>
+    </div>
+    <div style="font-size:10.5px;color:#5c6478;line-height:1.5;margin-top:8px;">Higher = more weight in the overall score. 0 removes a section from the total. Applies to new and re-opened audits.</div>`;
+
+  panel.querySelectorAll('input[type="range"]').forEach(inp => {
+    inp.addEventListener('input', () => {
+      const key = inp.dataset.key;
+      WEIGHTS[key] = parseFloat(inp.value);
+      document.getElementById('wv-' + key).textContent = WEIGHTS[key].toFixed(1);
+    });
+    inp.addEventListener('change', async () => {
+      await saveWeights();
+      if (currentReport && currentInputs) renderReport(currentReport, currentInputs);
+    });
+  });
+  document.getElementById('weightsResetBtn').addEventListener('click', async () => {
+    WEIGHTS = { ...DEFAULT_WEIGHTS };
+    renderWeightsPanel();
+    await saveWeights();
+    if (currentReport && currentInputs) renderReport(currentReport, currentInputs);
+  });
+}
+
+document.getElementById('weightsToggle').addEventListener('click', () => {
+  const panel = document.getElementById('weightsPanel');
+  const chevron = document.getElementById('weightsChevron');
+  const opening = panel.style.display === 'none';
+  panel.style.display = opening ? 'block' : 'none';
+  chevron.classList.toggle('open', opening);
+  if (opening) renderWeightsPanel();
+});
+
 /* ===================== init ===================== */
+await loadWeights();
 populateTemplates();
 refreshProfileDropdownAndList();
 refreshHistoryList();

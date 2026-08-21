@@ -47,6 +47,11 @@ exports.handler = async function (event) {
         return json(200, { profiles });
       }
 
+      if (params.action === 'weights') {
+        const weights = await store.get(ns(email, 'weights'), { type: 'json' });
+        return json(200, { weights: weights || null });
+      }
+
       return json(400, { error: 'Unknown or missing action' });
     }
 
@@ -82,6 +87,11 @@ exports.handler = async function (event) {
 
       if (body.action === 'save-icp-profiles') {
         await store.setJSON(ns(email, 'icp-profiles'), body.profiles || []);
+        return json(200, { ok: true });
+      }
+
+      if (body.action === 'save-weights') {
+        await store.setJSON(ns(email, 'weights'), body.weights || {});
         return json(200, { ok: true });
       }
 
