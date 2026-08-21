@@ -1059,6 +1059,57 @@ function buildUserText(){
   return txt;
 }
 
+// Reads Anthropic's streaming (SSE) response and reassembles the full text
+// plus token usage. The audit endpoint streams so it can run past Netlify's
+// 10s synchronous cap; the server pipes Anthropic's event stream through
+// unchanged, so we parse the same "data: {json}" lines here.
+async function readAnthropicStream(response){
+  const reader = response.body.getReader();
+  const decoder = new TextDecoder();
+  let buffer = '';
+  let text = '';
+  const usage = { input_tokens: 0, output_tokens: 0 };
+
+  function handleEvent(dataStr){
+    if (!dataStr || dataStr === '[DONE]') return;
+    let evt;
+    try { evt = JSON.parse(dataStr); } catch (e) { return; }
+    if (evt.type === 'content_block_delta' && evt.delta){
+      if (typeof evt.delta.text === 'string') text += evt.delta.text;
+    } else if (evt.type === 'message_start' && evt.message && evt.message.usage){
+      usage.input_tokens += evt.message.usage.input_tokens || 0;
+    } else if (evt.type === 'message_delta' && evt.usage){
+      usage.output_tokens += evt.usage.output_tokens || 0;
+    } else if (evt.type === 'error'){
+      throw new Error((evt.error && evt.error.message) || 'The model returned an error mid-stream.');
+    }
+  }
+
+  while (true){
+    const { done, value } = await reader.read();
+    if (done) break;
+    buffer += decoder.decode(value, { stream: true });
+    // SSE events are separated by blank lines; each has one or more "data:" lines.
+    let idx;
+    while ((idx = buffer.indexOf('\n\n')) !== -1){
+      const rawEvent = buffer.slice(0, idx);
+      buffer = buffer.slice(idx + 2);
+      rawEvent.split('\n').forEach(line => {
+        const m = line.match(/^data:\s?(.*)$/);
+        if (m) handleEvent(m[1]);
+      });
+    }
+  }
+  // flush any trailing event
+  buffer.split('\n').forEach(line => {
+    const m = line.match(/^data:\s?(.*)$/);
+    if (m) handleEvent(m[1]);
+  });
+
+  if (!text) throw new Error('The audit came back empty. Try running it again.');
+  return { text, usage };
+}
+
 async function runAudit(){
   errBox.innerHTML = '';
   showLoading();
@@ -1090,16 +1141,14 @@ async function runAudit(){
       throw new Error('Request failed (' + response.status + ')' + detail);
     }
 
-    const data = await response.json();
-    if (data.usage){
+    const { text: raw, usage } = await readAnthropicStream(response);
+    if (usage){
       session.calls += 1;
-      session.inputTokens += (data.usage.input_tokens || 0);
-      session.outputTokens += (data.usage.output_tokens || 0);
+      session.inputTokens += (usage.input_tokens || 0);
+      session.outputTokens += (usage.output_tokens || 0);
       renderSessionUsage();
     }
-    const textParts = (data.content || []).filter(b => b.type === 'text').map(b => b.text);
-    const raw = textParts.join('\n').trim();
-    const cleaned = raw.replace(/^```json\s*/i, '').replace(/^```\s*/i, '').replace(/```\s*$/i, '').trim();
+    const cleaned = raw.trim().replace(/^```json\s*/i, '').replace(/^```\s*/i, '').replace(/```\s*$/i, '').trim();
 
     let parsed;
     try { parsed = JSON.parse(cleaned); }
@@ -1179,10 +1228,8 @@ async function draftFinalCopy(){
       try { const eb = await response.json(); detail = eb.error ? ' — ' + eb.error : ''; } catch(e){}
       throw new Error('Request failed (' + response.status + ')' + detail);
     }
-    const data = await response.json();
-    const textParts = (data.content || []).filter(b => b.type === 'text').map(b => b.text);
-    const raw = textParts.join('\n').trim();
-    const cleaned = raw.replace(/^```json\s*/i,'').replace(/^```\s*/i,'').replace(/```\s*$/i,'').trim();
+    const { text: raw } = await readAnthropicStream(response);
+    const cleaned = raw.trim().replace(/^```json\s*/i,'').replace(/^```\s*/i,'').replace(/```\s*$/i,'').trim();
     let parsed;
     try { parsed = JSON.parse(cleaned); }
     catch(e){ throw new Error('Could not parse the drafted copy. Try again.'); }

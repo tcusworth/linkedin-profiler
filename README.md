@@ -19,9 +19,13 @@ audits. Invite-only accounts, hashed passwords, private data per user.
   All user records live in a Netlify Blobs store called `users`.
 - `netlify/functions/audit.js` — holds the real Anthropic API key
   server-side, proxies audit requests to `api.anthropic.com`, rate-limits per
-  user (20/hour, via Netlify Blobs), retries transient overload/503 responses
-  from Anthropic with backoff, and requires a valid session token on every
-  request.
+  user (20/hour, via Netlify Blobs), and **streams** the model's response
+  back to the browser. Streaming matters here: a full audit can take 40+
+  seconds to generate, and Netlify's synchronous functions are capped at 10s
+  (a normal await-the-whole-response function would be killed with a 504).
+  A streaming function starts sending bytes within a second or two and keeps
+  the connection alive as the rest flows, which sidesteps that ceiling. The
+  browser reassembles the streamed text in `readAnthropicStream()`.
 - `netlify/functions/data.js` — stores each user's audit history and saved
   ICP profiles in Netlify Blobs, namespaced by their email, so one person
   never sees another's data. Also requires a valid session token.
