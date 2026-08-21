@@ -1061,27 +1061,47 @@ function buildUserText(){
 
 // Reads Anthropic's streaming (SSE) response and reassembles the full text
 // plus token usage. The audit endpoint streams so it can run past Netlify's
-// 10s synchronous cap; the server pipes Anthropic's event stream through
-// unchanged, so we parse the same "data: {json}" lines here.
+// 10s synchronous cap. Netlify may deliver the SSE body in a few large
+// chunks rather than event-by-event, so this parses line-by-line and doesn't
+// rely on "\n\n" event boundaries surviving intact.
 async function readAnthropicStream(response){
   const reader = response.body.getReader();
   const decoder = new TextDecoder();
   let buffer = '';
   let text = '';
   const usage = { input_tokens: 0, output_tokens: 0 };
+  let streamError = null;
 
-  function handleEvent(dataStr){
+  function handleData(dataStr){
+    dataStr = dataStr.trim();
     if (!dataStr || dataStr === '[DONE]') return;
     let evt;
     try { evt = JSON.parse(dataStr); } catch (e) { return; }
-    if (evt.type === 'content_block_delta' && evt.delta){
+    const t = evt.type;
+    if (t === 'content_block_delta' && evt.delta){
       if (typeof evt.delta.text === 'string') text += evt.delta.text;
-    } else if (evt.type === 'message_start' && evt.message && evt.message.usage){
+      else if (typeof evt.delta.partial_json === 'string') text += evt.delta.partial_json;
+    } else if (t === 'message_start' && evt.message && evt.message.usage){
       usage.input_tokens += evt.message.usage.input_tokens || 0;
-    } else if (evt.type === 'message_delta' && evt.usage){
+    } else if (t === 'message_delta' && evt.usage){
       usage.output_tokens += evt.usage.output_tokens || 0;
-    } else if (evt.type === 'error'){
-      throw new Error((evt.error && evt.error.message) || 'The model returned an error mid-stream.');
+    } else if (t === 'error'){
+      streamError = (evt.error && evt.error.message) || 'The model returned an error mid-stream.';
+    }
+  }
+
+  function drainLines(flush){
+    let nl;
+    while ((nl = buffer.indexOf('\n')) !== -1){
+      const line = buffer.slice(0, nl);
+      buffer = buffer.slice(nl + 1);
+      const m = line.match(/^data:\s?(.*)$/);
+      if (m) handleData(m[1]);
+    }
+    if (flush && buffer.length){
+      const m = buffer.match(/^data:\s?(.*)$/);
+      if (m) handleData(m[1]);
+      buffer = '';
     }
   }
 
@@ -1089,23 +1109,12 @@ async function readAnthropicStream(response){
     const { done, value } = await reader.read();
     if (done) break;
     buffer += decoder.decode(value, { stream: true });
-    // SSE events are separated by blank lines; each has one or more "data:" lines.
-    let idx;
-    while ((idx = buffer.indexOf('\n\n')) !== -1){
-      const rawEvent = buffer.slice(0, idx);
-      buffer = buffer.slice(idx + 2);
-      rawEvent.split('\n').forEach(line => {
-        const m = line.match(/^data:\s?(.*)$/);
-        if (m) handleEvent(m[1]);
-      });
-    }
+    drainLines(false);
   }
-  // flush any trailing event
-  buffer.split('\n').forEach(line => {
-    const m = line.match(/^data:\s?(.*)$/);
-    if (m) handleEvent(m[1]);
-  });
+  buffer += decoder.decode();
+  drainLines(true);
 
+  if (streamError) throw new Error(streamError);
   if (!text) throw new Error('The audit came back empty. Try running it again.');
   return { text, usage };
 }
