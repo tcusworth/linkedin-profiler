@@ -323,25 +323,40 @@
   .delta-new{font-weight:700;}
   .delta-chip{font-size:11px;font-weight:700;padding:2px 8px;border-radius:20px;font-family:'JetBrains Mono',monospace;}
 
-  @page{ size:portrait; margin:14mm; }
+  @page{
+    size:portrait;
+    margin:16mm 15mm 18mm 15mm;
+    /* running footer with page numbers on every printed page */
+    @bottom-left{ content:"Flatirons Creative Studio — LinkedIn Profile Review"; font-family:'Inter',sans-serif; font-size:8pt; color:#8b93a1; }
+    @bottom-right{ content:"Page " counter(page) " of " counter(pages); font-family:'Inter',sans-serif; font-size:8pt; color:#8b93a1; }
+  }
   @media print{
     .panel, .report-toolbar, .empty-state, .loading-state{display:none !important;}
-    .app{display:block;}
-    .readout{padding:0;max-width:none;}
-    html, body{background:#fff;}
+    .app{display:block !important; grid-template-columns:none !important;}
+    .readout{padding:0 !important; max-width:none !important; margin:0 !important;}
+    html, body{background:#fff !important;}
     .section-body{display:block !important;}
-    .chevron{display:none;}
-    .section-card{break-inside:avoid;border:1px solid #ccc;}
+    .chevron{display:none !important;}
+    .section-card{break-inside:avoid; border:1px solid #d8d3c7 !important; box-shadow:none !important; margin-bottom:12px;}
     .edit-on .editable-text{border:none;background:none;padding:0;margin:0;}
     /* keep score bars, gauge fills, and coloured chips from dropping to white */
     *{ -webkit-print-color-adjust:exact; print-color-adjust:exact; }
-    /* hide anything floating/fixed (chat widgets, banners) and section grid gaps */
-    .clipper-banner, [class*="widget"], [id*="widget"]{ display:none !important; }
+    /* hide the app's floating/injected UI so it doesn't bleed into the page */
+    .clipper-banner, [class*="widget"], [id*="widget"], .fab, .chat-bubble{ display:none !important; }
     .score-grid{ display:block !important; }
     .score-grid > *{ break-inside:avoid; margin-bottom:10px; }
     .gauge-wrap{ break-inside:avoid; }
+    .section-card, .additional-card, .priorities-block{ break-inside:avoid; }
     a[href]:after{ content:""; }
+    /* printed document header — appears once at the top of the report */
+    #printHeader{ display:block !important; }
   }
+  /* hidden on screen, shown only when printing (see @media print above) */
+  #printHeader{ display:none; margin-bottom:22px; padding-bottom:14px; border-bottom:2px solid var(--brass); }
+  #printHeader .ph-brand{ font-family:'Fraunces',serif; font-weight:700; font-size:15px; color:var(--ink); }
+  #printHeader .ph-brand .ph-dot{ color:var(--brass); }
+  #printHeader .ph-title{ font-family:'Fraunces',serif; font-weight:600; font-size:24px; color:var(--ink); margin:4px 0 2px; }
+  #printHeader .ph-sub{ font-size:12px; color:var(--slate-light); }
 
   /* ---------- auth gate ---------- */
   .auth-gate{
@@ -1736,6 +1751,11 @@ function renderReport(d, inputs){
   ];
 
   let html = '';
+  html += `<div id="printHeader">
+    <div class="ph-brand">Flatirons Creative Studio<span class="ph-dot">.</span></div>
+    <div class="ph-title">LinkedIn Profile Review</div>
+    <div class="ph-sub">Prepared for ${escapeHtml(preparedFor)} &middot; ${new Date().toLocaleDateString(undefined,{year:'numeric',month:'long',day:'numeric'})}</div>
+  </div>`;
   html += `<div class="report-toolbar">
     <div class="report-title-block">
       <span class="report-title">Audit report</span>
