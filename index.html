@@ -798,6 +798,69 @@ function handleFiles(fileListRaw){
   checkFileSizes();
 }
 
+/* ---------- receive captures from the Signal Clipper Chrome extension ---------- */
+function dataUrlToFile(dataUrl, filename, mime){
+  const arr = dataUrl.split(',');
+  const bstr = atob(arr[1]);
+  let n = bstr.length;
+  const u8 = new Uint8Array(n);
+  while (n--) u8[n] = bstr.charCodeAt(n);
+  return new File([u8], filename, { type: mime || (arr[0].match(/:(.*?);/) || [])[1] || 'image/png' });
+}
+
+function receiveClipperFiles(payload){
+  const incoming = (payload && payload.files) || [];
+  let added = 0;
+  incoming.forEach(f => {
+    if (!f.dataUrl || !f.name) return;
+    const isImg = (f.type || '').startsWith('image/');
+    const isPdf = (f.type || '') === 'application/pdf';
+    const isTxt = (f.type || '') === 'text/plain' || /\.txt$/i.test(f.name);
+    // Screenshots + PDFs go into the upload set; a text file is dropped into
+    // the client-name hint if the field is empty, but not uploaded (the
+    // audit runs on the images).
+    if (isImg || isPdf){
+      try { state.files.push({ file: dataUrlToFile(f.dataUrl, f.name, f.type), id: uid() }); added++; }
+      catch (e) {}
+    }
+  });
+  if (payload && payload.profileName && !clientNameEl.value.trim()){
+    clientNameEl.value = payload.profileName;
+  }
+  if (added > 0){
+    renderFileList();
+    updateRunButton();
+    checkFileSizes();
+    showClipperBanner(added, payload && payload.profileName);
+  }
+}
+
+function showClipperBanner(count, name){
+  let banner = document.getElementById('clipperBanner');
+  if (!banner){
+    banner = document.createElement('div');
+    banner.id = 'clipperBanner';
+    banner.className = 'invite-banner';
+    banner.style.marginTop = '10px';
+    sizeWarnBox.parentNode.insertBefore(banner, sizeWarnBox);
+  }
+  banner.innerHTML = `Received ${count} screenshot${count===1?'':'s'} from the clipper${name ? ' for <strong>'+escapeHtml(name)+'</strong>' : ''}. Set the ideal client, then Run audit.`;
+  banner.style.display = 'block';
+  setTimeout(() => { if (banner) banner.style.display = 'none'; }, 8000);
+}
+
+// The extension focuses this tab and posts the capture. We only trust messages
+// from this same window (the extension injects a forwarder into the page).
+window.addEventListener('message', (event) => {
+  if (event.source !== window) return;
+  const d = event.data;
+  if (d && d.__signalClipper === true && d.type === 'clipper-files'){
+    receiveClipperFiles(d.payload);
+  }
+});
+// Signal to any injected forwarder that the app is ready to receive.
+window.__signalAppReady = true;
+
 function renderFileList(){
   fileListEl.innerHTML = '';
   state.files.forEach(entry => {
