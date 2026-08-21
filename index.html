@@ -1,0 +1,1244 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Signal — LinkedIn Profile Audit</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600;9..144,700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --ink:#141c2b;
+    --ink-2:#212c42;
+    --parchment:#faf7f1;
+    --paper:#ffffff;
+    --brass:#b8862e;
+    --brass-light:#e4b869;
+    --slate:#5b6472;
+    --slate-light:#8b93a1;
+    --line:#e6e1d6;
+    --signal-strong:#3f7d58;
+    --signal-mid:#c08a28;
+    --signal-weak:#b4483a;
+    --warn:#a8621f;
+    --radius:2px;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;}
+  body{
+    background:var(--parchment);
+    color:var(--ink);
+    font-family:'Inter',sans-serif;
+    -webkit-font-smoothing:antialiased;
+  }
+  ::selection{background:var(--brass-light);color:var(--ink);}
+
+  .app{display:grid;grid-template-columns: 380px 1fr; min-height:100vh;}
+  @media (max-width: 920px){.app{grid-template-columns:1fr;}}
+
+  /* ---------- LEFT: control panel ---------- */
+  .panel{
+    background:var(--ink); color:#e9ecf2; padding:32px 28px 40px;
+    position:sticky; top:0; height:100vh; overflow-y:auto;
+    border-right:1px solid #0b0f18;
+  }
+  @media (max-width: 920px){.panel{position:static;height:auto;}}
+  .wordmark{
+    font-family:'Fraunces', serif; font-optical-sizing:auto; font-weight:600; font-size:26px;
+    letter-spacing:0.01em; display:flex; align-items:baseline; gap:8px; margin:0 0 2px;
+  }
+  .wordmark .dot{color:var(--brass);}
+  .tagline{font-size:12px;color:#9aa4b6;letter-spacing:0.06em;text-transform:uppercase;margin:0 0 26px;}
+
+  .field-group{margin-bottom:18px;}
+  .field-label{
+    display:flex;align-items:baseline;justify-content:space-between;font-size:11px;letter-spacing:0.05em;
+    text-transform:uppercase;color:var(--brass-light);margin-bottom:7px;font-weight:600;
+  }
+  .field-hint{font-size:10.5px;color:#6e7688;text-transform:none;letter-spacing:0;font-weight:400;}
+  textarea, input[type="text"], select{
+    width:100%; background:#1a2336; border:1px solid #2a3550; color:#eef0f4; border-radius:var(--radius);
+    padding:10px 11px; font-family:'Inter',sans-serif; font-size:13px; line-height:1.5; resize:vertical;
+    transition:border-color 150ms ease, background 150ms ease;
+  }
+  select{cursor:pointer;appearance:none;-webkit-appearance:none;
+    background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%238b93a1' stroke-width='2'><path d='M6 9l6 6 6-6'/></svg>");
+    background-repeat:no-repeat; background-position:right 10px center; background-size:14px; padding-right:30px;
+  }
+  textarea::placeholder, input::placeholder{color:#5b6478;}
+  textarea:focus, input:focus, select:focus{outline:none;border-color:var(--brass);background:#1e2740;}
+  textarea:focus-visible, input:focus-visible, select:focus-visible{outline:2px solid var(--brass);outline-offset:1px;}
+
+  .link-btn{
+    background:none;border:none;color:var(--brass-light);font-size:11.5px;font-weight:600;cursor:pointer;
+    padding:0;text-decoration:underline;text-underline-offset:2px;
+  }
+  .link-btn:hover{color:var(--brass);}
+  .icp-row{display:flex;gap:8px;align-items:center;margin-bottom:8px;}
+  .icp-row select{flex:1;}
+
+  .saved-list{display:flex;flex-direction:column;gap:5px;margin-top:8px;}
+  .saved-chip{
+    display:flex;align-items:center;gap:8px;background:#1a2336;border:1px solid #2a3550;
+    border-radius:var(--radius);padding:6px 9px;font-size:11.5px;color:#cfd4de;
+  }
+  .saved-chip .sc-name{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;cursor:pointer;}
+  .saved-chip .sc-name:hover{color:var(--brass-light);}
+  .saved-chip button{background:none;border:none;color:#8b93a1;cursor:pointer;font-size:14px;line-height:1;padding:2px 3px;}
+  .saved-chip button:hover{color:var(--signal-weak);}
+
+  .upload-zone{
+    border:1.5px dashed #37415c;border-radius:var(--radius);padding:20px 14px;text-align:center;cursor:pointer;
+    transition:border-color 150ms ease, background 150ms ease;background:#171f30;
+  }
+  .upload-zone:hover, .upload-zone.dragover{border-color:var(--brass);background:#1c2538;}
+  .upload-zone svg{width:20px;height:20px;stroke:var(--brass-light);margin-bottom:7px;}
+  .upload-zone .u-title{font-size:12.5px;color:#e9ecf2;font-weight:500;}
+  .upload-zone .u-sub{font-size:11px;color:#7a8296;margin-top:4px;}
+  input[type="file"]{display:none;}
+
+  .file-list{margin-top:10px;display:flex;flex-direction:column;gap:6px;}
+  .file-chip{
+    display:flex;align-items:center;gap:8px;background:#1a2336;border:1px solid #2a3550;border-radius:var(--radius);
+    padding:7px 10px;font-size:11.5px;color:#cfd4de;
+  }
+  .file-chip .fc-name{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+  .file-chip .fc-size{color:#6e7688;font-family:'JetBrains Mono',monospace;font-size:10.5px;}
+  .file-chip button{background:none;border:none;color:#8b93a1;cursor:pointer;font-size:15px;line-height:1;padding:2px 4px;}
+  .file-chip button:hover{color:var(--signal-weak);}
+
+  .warn-msg{
+    margin-top:9px;background:#3a2c14;border:1px solid #6b5229;color:#f0d6a3;padding:9px 11px;
+    border-radius:var(--radius);font-size:11.5px;line-height:1.5;
+  }
+  .err-msg{
+    margin-top:12px;background:#3a1c1c;border:1px solid #6b2f2f;color:#f3c9c3;padding:10px 12px;
+    border-radius:var(--radius);font-size:12.5px;line-height:1.5;
+  }
+
+  .run-btn{
+    width:100%;margin-top:20px;background:var(--brass);color:#191307;border:none;border-radius:var(--radius);
+    padding:12px 16px;font-size:13.5px;font-weight:700;letter-spacing:0.02em;cursor:pointer;
+    transition:background 150ms ease, transform 100ms ease;display:flex;align-items:center;justify-content:center;gap:8px;
+  }
+  .run-btn:hover:not(:disabled){background:var(--brass-light);}
+  .run-btn:active:not(:disabled){transform:scale(0.99);}
+  .run-btn:disabled{background:#3a4258;color:#767f92;cursor:not-allowed;}
+
+  .panel-divider{border-top:1px solid #232d44;margin:24px 0 18px;}
+  .panel-section-title{
+    font-size:11px;font-weight:700;letter-spacing:0.05em;text-transform:uppercase;color:#9aa4b6;margin:0 0 12px;
+    display:flex;justify-content:space-between;align-items:center;
+  }
+
+  .history-list{display:flex;flex-direction:column;gap:6px;max-height:280px;overflow-y:auto;}
+  .history-empty{font-size:11.5px;color:#6e7688;line-height:1.6;}
+  .history-item{
+    display:flex;align-items:center;gap:8px;background:#1a2336;border:1px solid #2a3550;border-radius:var(--radius);
+    padding:8px 9px;
+  }
+  .history-item input[type="checkbox"]{accent-color:var(--brass);flex-shrink:0;cursor:pointer;}
+  .history-main{flex:1;min-width:0;cursor:pointer;}
+  .history-main:hover .history-name{color:var(--brass-light);}
+  .history-name{font-size:12px;font-weight:600;color:#e9ecf2;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+  .history-date{font-size:10.5px;color:#6e7688;font-family:'JetBrains Mono',monospace;margin-top:1px;}
+  .history-score{
+    font-family:'JetBrains Mono',monospace;font-size:11px;font-weight:700;padding:2px 7px;border-radius:20px;flex-shrink:0;
+  }
+  .history-del{background:none;border:none;color:#5c6478;cursor:pointer;font-size:14px;padding:2px 3px;flex-shrink:0;}
+  .history-del:hover{color:var(--signal-weak);}
+  .compare-btn{
+    width:100%;margin-top:10px;background:#1a2336;border:1px solid var(--brass);color:var(--brass-light);
+    border-radius:var(--radius);padding:9px;font-size:12px;font-weight:600;cursor:pointer;
+  }
+  .compare-btn:hover{background:#1e2740;}
+
+  .session-usage{margin-top:20px;font-size:10.5px;color:#5c6478;line-height:1.7;font-family:'JetBrains Mono',monospace;}
+
+  /* ---------- RIGHT: readout ---------- */
+  .readout{padding:44px 48px 80px;max-width:920px;}
+  @media (max-width: 640px){.readout{padding:28px 20px 60px;}}
+
+  .empty-state{
+    height:70vh;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;color:var(--slate);
+  }
+  .empty-state svg{width:56px;height:56px;stroke:var(--slate-light);margin-bottom:18px;opacity:0.7;}
+  .empty-state h2{font-family:'Fraunces',serif;font-weight:500;font-size:22px;color:var(--ink);margin:0 0 8px;}
+  .empty-state p{font-size:13.5px;max-width:340px;line-height:1.6;margin:0;}
+
+  .loading-state{height:70vh;display:flex;flex-direction:column;align-items:center;justify-content:center;}
+  .scan-ring{width:64px;height:64px;border-radius:50%;border:3px solid var(--line);border-top-color:var(--brass);animation:spin 900ms linear infinite;margin-bottom:20px;}
+  @keyframes spin{to{transform:rotate(360deg);}}
+  .loading-text{font-family:'JetBrains Mono',monospace;font-size:12.5px;color:var(--slate);letter-spacing:0.03em;}
+
+  .report-toolbar{display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;flex-wrap:wrap;gap:10px;}
+  .report-title-block{display:flex;flex-direction:column;gap:2px;}
+  .report-title{font-family:'Fraunces',serif;font-weight:600;font-size:12px;color:var(--slate);letter-spacing:0.06em;text-transform:uppercase;}
+  .report-prepared-for{font-size:13px;color:var(--ink);font-weight:600;}
+  .toolbar-actions{display:flex;gap:8px;flex-wrap:wrap;}
+  .tb-btn{
+    background:var(--paper);border:1px solid var(--line);color:var(--ink);font-size:11.5px;font-weight:600;
+    padding:8px 13px;border-radius:var(--radius);cursor:pointer;transition:border-color 150ms ease, background 150ms ease;
+  }
+  .tb-btn:hover{border-color:var(--brass);background:#fffdf9;}
+  .tb-btn.active{background:var(--ink);color:#fff;border-color:var(--ink);}
+
+  .prepared-for-input{
+    font-size:13px;padding:6px 9px;border:1px solid var(--line);border-radius:var(--radius);
+    background:var(--paper);color:var(--ink);width:220px;
+  }
+
+  .gauge-card{
+    background:var(--paper);border:1px solid var(--line);border-radius:var(--radius);padding:30px 30px 22px;
+    display:flex;gap:34px;align-items:center;margin-bottom:22px;flex-wrap:wrap;
+  }
+  .gauge-wrap{flex-shrink:0;}
+  .gauge-readout{font-family:'JetBrains Mono',monospace;text-anchor:middle;}
+  .gauge-num{font-size:32px;font-weight:700;fill:var(--ink);}
+  .gauge-max{font-size:11px;fill:var(--slate-light);}
+  .gauge-info{flex:1;min-width:220px;}
+  .gauge-label{
+    display:inline-block;font-family:'JetBrains Mono',monospace;font-size:11px;font-weight:600;letter-spacing:0.06em;
+    text-transform:uppercase;padding:3px 9px;border-radius:20px;margin-bottom:10px;
+  }
+  .gauge-desc{font-size:13px;color:var(--slate);line-height:1.6;margin:0;}
+
+  .score-grid{display:grid;grid-template-columns:1fr 1fr;gap:9px 18px;margin-bottom:26px;}
+  @media (max-width:560px){.score-grid{grid-template-columns:1fr;}}
+  .score-row{background:var(--paper);border:1px solid var(--line);border-radius:var(--radius);padding:11px 13px;}
+  .score-row-top{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:6px;}
+  .score-row-label{font-size:12px;font-weight:600;color:var(--ink);}
+  .score-row-val{font-family:'JetBrains Mono',monospace;font-size:11.5px;color:var(--slate);}
+  .score-bar-track{height:5px;background:var(--line);border-radius:4px;overflow:hidden;}
+  .score-bar-fill{height:100%;border-radius:4px;transition:width 500ms ease;}
+
+  .gaps-note{
+    font-size:12px;color:var(--slate);background:#f3efe4;border:1px solid var(--line);border-left:3px solid var(--brass);
+    padding:10px 14px;border-radius:var(--radius);margin-bottom:26px;line-height:1.6;
+  }
+
+  .section-card{background:var(--paper);border:1px solid var(--line);border-radius:var(--radius);margin-bottom:14px;overflow:hidden;}
+  .section-head{display:flex;align-items:center;gap:14px;padding:16px 18px;cursor:pointer;user-select:none;}
+  .section-num{
+    font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--brass);border:1px solid var(--brass-light);
+    width:24px;height:24px;border-radius:50%;display:flex;align-items:center;justify-content:center;flex-shrink:0;
+  }
+  .section-title{font-family:'Fraunces',serif;font-weight:600;font-size:16px;flex:1;}
+  .section-score{font-family:'JetBrains Mono',monospace;font-size:11.5px;font-weight:600;padding:3px 9px;border-radius:20px;flex-shrink:0;}
+  .chevron{width:16px;height:16px;flex-shrink:0;stroke:var(--slate-light);transition:transform 200ms ease;}
+  .section-card.open .chevron{transform:rotate(180deg);}
+  .section-body{padding:0 20px 20px 56px;display:none;}
+  .section-card.open .section-body{display:block;}
+  .sb-block{margin-bottom:15px;}
+  .sb-block:last-child{margin-bottom:0;}
+  .sb-heading{font-size:10.5px;font-weight:700;text-transform:uppercase;letter-spacing:0.05em;color:var(--brass);margin:0 0 7px;}
+  .sb-text{font-size:13.5px;line-height:1.65;color:#333;margin:0 0 8px;}
+  .sb-list{margin:0;padding-left:18px;}
+  .sb-list li{font-size:13.5px;line-height:1.65;color:#333;margin-bottom:5px;}
+  .rewrite-block{
+    background:#faf7ef;border-left:3px solid var(--brass);padding:11px 14px;border-radius:var(--radius);
+    font-size:13.5px;line-height:1.6;color:var(--ink);margin-bottom:8px;
+  }
+  .rewrite-block:last-child{margin-bottom:0;}
+  .rewrite-tag{font-family:'JetBrains Mono',monospace;font-size:10px;font-weight:600;color:var(--brass);text-transform:uppercase;letter-spacing:0.04em;display:block;margin-bottom:4px;}
+  .editable-text{outline:none;}
+  .edit-on .editable-text{
+    background:#fffef8;border:1px dashed var(--brass-light);border-radius:var(--radius);padding:4px 6px;margin:-4px -6px;cursor:text;
+  }
+  .edit-on .editable-text:focus{border-color:var(--brass);background:#fffdf3;}
+
+  .proof-table{width:100%;border-collapse:collapse;font-size:13px;}
+  .proof-table th{text-align:left;font-size:10.5px;text-transform:uppercase;letter-spacing:0.04em;color:var(--slate);border-bottom:1.5px solid var(--ink);padding:0 10px 8px 0;font-weight:700;}
+  .proof-table td{padding:9px 10px 9px 0;border-bottom:1px solid var(--line);vertical-align:top;line-height:1.55;}
+  .proof-status{font-family:'JetBrains Mono',monospace;font-size:11px;font-weight:600;padding:2px 8px;border-radius:20px;white-space:nowrap;display:inline-block;}
+
+  .addl-block{margin-bottom:20px;}
+  .addl-block:last-child{margin-bottom:0;}
+  .rec-table{width:100%;border-collapse:collapse;font-size:12.5px;margin-top:8px;}
+  .rec-table th{text-align:left;font-size:10px;text-transform:uppercase;letter-spacing:0.04em;color:var(--slate);border-bottom:1.5px solid var(--ink);padding:0 8px 7px 0;font-weight:700;}
+  .rec-table td{padding:8px 8px 8px 0;border-bottom:1px solid var(--line);vertical-align:top;line-height:1.5;}
+
+  .priorities-title{font-family:'Fraunces',serif;font-weight:600;font-size:18px;margin:32px 0 14px;}
+  .priority-card{display:flex;gap:16px;background:var(--ink);color:#eef0f4;border-radius:var(--radius);padding:17px 19px;margin-bottom:12px;}
+  .priority-num{font-family:'Fraunces',serif;font-size:24px;font-weight:600;color:var(--brass);flex-shrink:0;line-height:1;}
+  .priority-body h4{margin:0 0 6px;font-size:14px;font-weight:600;}
+  .priority-body p{margin:0;font-size:12.5px;line-height:1.6;color:#c3c8d4;}
+
+  .footer-note{margin-top:32px;font-size:11px;color:var(--slate-light);border-top:1px solid var(--line);padding-top:14px;line-height:1.6;}
+
+  /* compare view */
+  .compare-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:24px;}
+  .compare-title{font-family:'Fraunces',serif;font-weight:600;font-size:20px;}
+  .compare-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:24px;}
+  @media (max-width:640px){.compare-grid{grid-template-columns:1fr;}}
+  .compare-col-head{
+    background:var(--ink);color:#eef0f4;border-radius:var(--radius);padding:16px 18px;text-align:center;
+  }
+  .compare-col-head .cc-name{font-family:'Fraunces',serif;font-size:15px;font-weight:600;margin-bottom:2px;}
+  .compare-col-head .cc-date{font-size:11px;color:#9aa4b6;font-family:'JetBrains Mono',monospace;}
+  .compare-col-head .cc-score{font-family:'JetBrains Mono',monospace;font-size:30px;font-weight:700;margin-top:8px;color:var(--brass-light);}
+  .delta-row{
+    display:flex;align-items:center;gap:14px;background:var(--paper);border:1px solid var(--line);border-radius:var(--radius);
+    padding:12px 16px;margin-bottom:8px;
+  }
+  .delta-label{flex:1;font-size:13px;font-weight:600;}
+  .delta-scores{display:flex;align-items:center;gap:10px;font-family:'JetBrains Mono',monospace;font-size:13px;}
+  .delta-old{color:var(--slate-light);}
+  .delta-arrow{color:var(--slate-light);}
+  .delta-new{font-weight:700;}
+  .delta-chip{font-size:11px;font-weight:700;padding:2px 8px;border-radius:20px;font-family:'JetBrains Mono',monospace;}
+
+  @media print{
+    .panel, .report-toolbar, .empty-state, .loading-state{display:none !important;}
+    .app{display:block;}
+    .readout{padding:0;max-width:none;}
+    body{background:#fff;}
+    .section-body{display:block !important;}
+    .chevron{display:none;}
+    .section-card{break-inside:avoid;border:1px solid #ccc;}
+    .edit-on .editable-text{border:none;background:none;padding:0;margin:0;}
+  }
+</style>
+</head>
+<body>
+
+<div class="app">
+
+  <!-- ============ LEFT CONTROL PANEL ============ -->
+  <aside class="panel">
+    <p class="wordmark">Signal<span class="dot">.</span></p>
+    <p class="tagline">LinkedIn conversion audit</p>
+
+    <div class="field-group">
+      <div class="field-label">Client / audit name</div>
+      <input type="text" id="clientName" placeholder="e.g. Lu Stasko — Stasko Agency">
+    </div>
+
+    <div class="field-group">
+      <div class="field-label">Ideal client profile</div>
+      <div class="icp-row">
+        <select id="icpProfileSelect">
+          <option value="">— Blank / new —</option>
+          <optgroup label="Quick templates" id="templateGroup"></optgroup>
+          <optgroup label="Saved profiles" id="savedGroup"></optgroup>
+        </select>
+      </div>
+      <button class="link-btn" id="saveIcpBtn">+ Save current fields as a profile</button>
+      <div class="saved-list" id="savedProfileList"></div>
+    </div>
+
+    <div class="field-group">
+      <div class="field-label">Ideal client<span class="field-hint">role, industry, stage, problem, outcome</span></div>
+      <textarea id="icp" rows="5" placeholder="Role, industry, business stage, the specific problem they're experiencing right now, and the outcome they're trying to achieve."></textarea>
+    </div>
+
+    <div class="field-group">
+      <div class="field-label">Specific result you create for them</div>
+      <textarea id="result" rows="3" placeholder="e.g. I help B2B service founders generate 5–8 qualified discovery calls per month from LinkedIn without paid ads."></textarea>
+    </div>
+
+    <div class="field-group">
+      <div class="field-label">Your paid offer</div>
+      <textarea id="offer" rows="3" placeholder="What you sell, and who it's for."></textarea>
+    </div>
+
+    <div class="field-group">
+      <div class="field-label">Profile material</div>
+      <div class="upload-zone" id="dropzone">
+        <svg viewBox="0 0 24 24" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12"/><path d="M7 8l5-5 5 5"/><path d="M4 17v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2"/></svg>
+        <div class="u-title">Upload screenshots or a downloaded profile PDF</div>
+        <div class="u-sub">Banner, headline, About, Featured, Experience, Recommendations</div>
+      </div>
+      <input type="file" id="fileInput" multiple accept="image/*,application/pdf">
+      <div class="file-list" id="fileList"></div>
+      <div id="sizeWarnBox"></div>
+    </div>
+
+    <button class="run-btn" id="runBtn" disabled>
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M13 2 3 14h7l-1 8 10-12h-7l1-8z"/></svg>
+      Run audit
+    </button>
+
+    <div id="errBox"></div>
+
+    <div class="panel-divider"></div>
+    <div class="panel-section-title">
+      <span>Audit history</span>
+    </div>
+    <div class="history-list" id="historyList"><div class="history-empty">No saved audits yet — they'll appear here after your first run.</div></div>
+    <button class="compare-btn" id="compareBtn" style="display:none;">Compare selected (2)</button>
+
+    <div class="session-usage" id="sessionUsage">This session: 0 audits run</div>
+  </aside>
+
+  <!-- ============ RIGHT READOUT ============ -->
+  <main class="readout" id="readout">
+    <div class="empty-state" id="emptyState">
+      <svg viewBox="0 0 24 24" fill="none" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12h4l3 8 4-16 3 8h4"/></svg>
+      <h2>No signal yet</h2>
+      <p>Describe your ideal client and upload profile screenshots on the left, then run the audit to see a full scored breakdown here.</p>
+    </div>
+  </main>
+
+</div>
+
+<script>
+/* ===================== state ===================== */
+const state = { files: [] };
+let currentAuditId = null;   // id of the audit currently shown, if saved
+let currentReport = null;    // in-memory report object (mutable for edit mode)
+let currentInputs = null;    // {icp, result, offer, clientName}
+let editMode = false;
+const selectedForCompare = new Set();
+const session = { calls: 0, inputTokens: 0, outputTokens: 0 };
+
+const icpEl = document.getElementById('icp');
+const resultEl = document.getElementById('result');
+const offerEl = document.getElementById('offer');
+const clientNameEl = document.getElementById('clientName');
+const dropzone = document.getElementById('dropzone');
+const fileInput = document.getElementById('fileInput');
+const fileListEl = document.getElementById('fileList');
+const sizeWarnBox = document.getElementById('sizeWarnBox');
+const runBtn = document.getElementById('runBtn');
+const errBox = document.getElementById('errBox');
+const readout = document.getElementById('readout');
+const historyListEl = document.getElementById('historyList');
+const compareBtn = document.getElementById('compareBtn');
+const icpProfileSelect = document.getElementById('icpProfileSelect');
+const savedProfileList = document.getElementById('savedProfileList');
+const sessionUsageEl = document.getElementById('sessionUsage');
+
+function escapeHtml(s){
+  const d = document.createElement('div');
+  d.textContent = s == null ? '' : String(s);
+  return d.innerHTML;
+}
+function uid(){ return Date.now().toString(36) + Math.random().toString(36).slice(2,8); }
+function fmtDate(iso){
+  const d = new Date(iso);
+  return d.toLocaleDateString(undefined, { month:'short', day:'numeric', year:'numeric' });
+}
+
+/* ===================== quick ICP templates ===================== */
+const TEMPLATES = [
+  { id:"t-saas", name:"SaaS founder", icp:"Founder or Head of Growth at an early-to-growth-stage B2B SaaS company (seed to Series B). They have product-market fit signals but inconsistent pipeline. Underlying problem: founder-led sales does not scale and marketing has not built a repeatable channel yet. They want a predictable flow of qualified conversations, not just more traffic.", result:"I help B2B SaaS founders generate 5-8 qualified discovery calls per month from LinkedIn without paid ads.", offer:"A 90-day LinkedIn-led outbound and content system for founder-led B2B SaaS sales teams." },
+  { id:"t-re", name:"Real estate developer", icp:"Developer, Principal, or VP of Marketing/BD at a real estate development or hospitality company entering a new market or launching a project. Underlying problem: they lack local relationships, media credibility, and community trust needed for leasing, attendance, or stakeholder support, not just more visibility.", result:"I help developers and hospitality brands entering a new market build local trust, media coverage, and leasing momentum within 90-180 days.", offer:"A relationship-led visibility and community-engagement engagement for developers and hospitality brands launching or expanding into a new market." },
+  { id:"t-coach", name:"Coach / consultant", icp:"Independent coach or consultant with real expertise and client results, but an inconsistent lead flow that depends on referrals. Underlying problem: no repeatable system for turning their expertise into inbound conversations; profile and content do not reflect the specificity of who they help.", result:"I help expert coaches and consultants turn their existing expertise into 3-5 qualified sales conversations per month without cold outreach.", offer:"A positioning and content system that turns a coach or consultant's LinkedIn presence into a lead-generation asset." },
+  { id:"t-civic", name:"Civic / nonprofit leader", icp:"Executive Director, President, or civic leader responsible for public support, participation, or funding for a nonprofit, association, or municipal initiative. Underlying problem: stakeholders do not yet understand, trust, or want to participate in the initiative, a credibility and relationship gap rather than a marketing-materials gap.", result:"I help civic and nonprofit leaders build public understanding, stakeholder trust, and participation around a major initiative within one budget cycle.", offer:"A stakeholder engagement and public-trust campaign for civic and nonprofit leaders launching or defending a major initiative." },
+];
+
+function populateTemplates(){
+  const group = document.getElementById('templateGroup');
+  group.innerHTML = TEMPLATES.map(t => `<option value="tmpl:${t.id}">${escapeHtml(t.name)}</option>`).join('');
+}
+
+/* ===================== storage helpers ===================== */
+async function safeGet(key){
+  try { return localStorage.getItem(key); }
+  catch (e) { return null; }
+}
+async function safeSet(key, value){
+  try { localStorage.setItem(key, value); return true; }
+  catch (e) { return false; }
+}
+async function safeDelete(key){
+  try { localStorage.removeItem(key); return true; }
+  catch (e) { return false; }
+}
+
+async function loadAuditIndex(){
+  const raw = await safeGet('audit-index');
+  if (!raw) return [];
+  try { return JSON.parse(raw); } catch(e){ return []; }
+}
+async function saveAuditIndex(list){ return safeSet('audit-index', JSON.stringify(list)); }
+
+async function loadIcpProfiles(){
+  const raw = await safeGet('icp-profiles');
+  if (!raw) return [];
+  try { return JSON.parse(raw); } catch(e){ return []; }
+}
+async function saveIcpProfiles(list){ return safeSet('icp-profiles', JSON.stringify(list)); }
+
+/* ===================== ICP profile UI ===================== */
+async function refreshProfileDropdownAndList(){
+  const profiles = await loadIcpProfiles();
+  const savedGroup = document.getElementById('savedGroup');
+  savedGroup.innerHTML = profiles.length
+    ? profiles.map(p => `<option value="saved:${p.id}">${escapeHtml(p.name)}</option>`).join('')
+    : '';
+  savedProfileList.innerHTML = profiles.map(p => `
+    <div class="saved-chip">
+      <span class="sc-name" data-id="${p.id}">${escapeHtml(p.name)}</span>
+      <button data-id="${p.id}" aria-label="Delete profile">×</button>
+    </div>
+  `).join('');
+  savedProfileList.querySelectorAll('.sc-name').forEach(el => {
+    el.addEventListener('click', () => applyProfileById(el.dataset.id, profiles));
+  });
+  savedProfileList.querySelectorAll('button').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      const remaining = profiles.filter(p => p.id !== btn.dataset.id);
+      await saveIcpProfiles(remaining);
+      refreshProfileDropdownAndList();
+    });
+  });
+}
+
+function applyProfileById(id, profiles){
+  const p = profiles.find(x => x.id === id);
+  if (!p) return;
+  icpEl.value = p.icp || '';
+  resultEl.value = p.result || '';
+  offerEl.value = p.offer || '';
+  updateRunButton();
+}
+
+icpProfileSelect.addEventListener('change', async () => {
+  const val = icpProfileSelect.value;
+  if (!val) return;
+  if (val.startsWith('tmpl:')){
+    const t = TEMPLATES.find(x => 'tmpl:' + x.id === val);
+    if (t){ icpEl.value = t.icp; resultEl.value = t.result; offerEl.value = t.offer; updateRunButton(); }
+  } else if (val.startsWith('saved:')){
+    const id = val.slice(6);
+    const profiles = await loadIcpProfiles();
+    applyProfileById(id, profiles);
+  }
+  icpProfileSelect.value = '';
+});
+
+document.getElementById('saveIcpBtn').addEventListener('click', async () => {
+  if (!icpEl.value.trim()){ return; }
+  const name = prompt('Name this ICP profile (e.g. "Real estate developers — Denver"):');
+  if (!name) return;
+  const profiles = await loadIcpProfiles();
+  profiles.push({ id: uid(), name: name.trim(), icp: icpEl.value, result: resultEl.value, offer: offerEl.value, createdAt: new Date().toISOString() });
+  await saveIcpProfiles(profiles);
+  refreshProfileDropdownAndList();
+});
+
+/* ===================== file handling ===================== */
+function updateRunButton(){
+  const ready = icpEl.value.trim().length > 10 && state.files.length > 0;
+  runBtn.disabled = !ready;
+}
+icpEl.addEventListener('input', updateRunButton);
+
+dropzone.addEventListener('click', () => fileInput.click());
+dropzone.addEventListener('dragover', e => { e.preventDefault(); dropzone.classList.add('dragover'); });
+dropzone.addEventListener('dragleave', () => dropzone.classList.remove('dragover'));
+dropzone.addEventListener('drop', e => { e.preventDefault(); dropzone.classList.remove('dragover'); handleFiles(e.dataTransfer.files); });
+fileInput.addEventListener('change', e => handleFiles(e.target.files));
+
+const SINGLE_FILE_WARN_MB = 8;
+const TOTAL_WARN_MB = 20;
+const TOTAL_BLOCK_MB = 40;
+
+function handleFiles(fileListRaw){
+  for (const f of fileListRaw){
+    if (!f.type.startsWith('image/') && f.type !== 'application/pdf') continue;
+    state.files.push({ file: f, id: uid() });
+  }
+  renderFileList();
+  updateRunButton();
+  checkFileSizes();
+}
+
+function renderFileList(){
+  fileListEl.innerHTML = '';
+  state.files.forEach(entry => {
+    const sizeMb = (entry.file.size / (1024*1024)).toFixed(1);
+    const chip = document.createElement('div');
+    chip.className = 'file-chip';
+    chip.innerHTML = `<span class="fc-name">${escapeHtml(entry.file.name)}</span><span class="fc-size">${sizeMb}MB</span><button aria-label="Remove file">×</button>`;
+    chip.querySelector('button').addEventListener('click', () => {
+      state.files = state.files.filter(e => e.id !== entry.id);
+      renderFileList();
+      updateRunButton();
+      checkFileSizes();
+    });
+    fileListEl.appendChild(chip);
+  });
+}
+
+function checkFileSizes(){
+  sizeWarnBox.innerHTML = '';
+  if (!state.files.length) return;
+  const totalMb = state.files.reduce((sum, e) => sum + e.file.size, 0) / (1024*1024);
+  const bigFiles = state.files.filter(e => e.file.size / (1024*1024) > SINGLE_FILE_WARN_MB);
+  const msgs = [];
+  if (bigFiles.length){
+    msgs.push(`${bigFiles.length} file${bigFiles.length>1?'s are':' is'} quite large (over ${SINGLE_FILE_WARN_MB}MB) — screenshots will be auto-resized, but a large PDF won't be.`);
+  }
+  if (totalMb > TOTAL_BLOCK_MB){
+    msgs.push(`Combined upload is ${totalMb.toFixed(0)}MB — this will likely fail or time out. Remove some files before running.`);
+  } else if (totalMb > TOTAL_WARN_MB){
+    msgs.push(`Combined upload is ${totalMb.toFixed(0)}MB — this may be slow. Consider trimming to the most important screenshots.`);
+  }
+  if (msgs.length){
+    sizeWarnBox.innerHTML = `<div class="warn-msg">${msgs.map(escapeHtml).join('<br>')}</div>`;
+  }
+}
+
+/* ---------- image resizing to keep payloads light ---------- */
+function fileToContentBlock(entry){
+  return new Promise((resolve, reject) => {
+    const f = entry.file;
+    if (f.type === 'application/pdf'){
+      const reader = new FileReader();
+      reader.onload = () => resolve({ type: 'document', source: { type: 'base64', media_type: 'application/pdf', data: reader.result.split(',')[1] } });
+      reader.onerror = reject;
+      reader.readAsDataURL(f);
+      return;
+    }
+    const img = new Image();
+    const reader = new FileReader();
+    reader.onload = () => { img.src = reader.result; };
+    reader.onerror = reject;
+    img.onload = () => {
+      const maxDim = 1568;
+      let { width, height } = img;
+      if (width > maxDim || height > maxDim){
+        const scale = maxDim / Math.max(width, height);
+        width = Math.round(width * scale);
+        height = Math.round(height * scale);
+      }
+      const canvas = document.createElement('canvas');
+      canvas.width = width; canvas.height = height;
+      const ctx = canvas.getContext('2d');
+      ctx.fillStyle = '#ffffff';
+      ctx.fillRect(0,0,width,height);
+      ctx.drawImage(img, 0, 0, width, height);
+      const dataUrl = canvas.toDataURL('image/jpeg', 0.85);
+      resolve({ type: 'image', source: { type: 'base64', media_type: 'image/jpeg', data: dataUrl.split(',')[1] } });
+    };
+    reader.readAsDataURL(f);
+  });
+}
+
+/* ===================== audit prompt + run ===================== */
+const SYSTEM_PROMPT = `You are an expert LinkedIn profile auditor. You assess how well a LinkedIn profile converts cold visitors into inbound enquiries from a specific stated ideal client (ICP), then produce scored, section-by-section findings with concrete rewrites.
+
+Score every section 0-10. Higher = more likely to convert the stated ICP. Judge everything against the ICP brief provided — a profile is not good or bad in the abstract, only effective or ineffective at converting that specific visitor.
+
+Sections and what to check:
+1. banner — first visual impression before reading any text; does it signal relevance to the ICP or read as generic
+2. headline — audience + outcome clarity, not just a job title
+3. about — would a cold ICP visitor keep reading past the opening; proof quality; CTA presence
+4. featured — lead-capture asset presence, ordering, whether it moves a stranger toward becoming a lead
+5. proof_trust — specific/named/numbered results across the whole profile, not just one section
+6. cta — presence of a clear, low-friction next step anywhere on the profile
+
+Also produce an "additional" pass covering: profile mechanics (link text, hashtags, tags), recommendations (recency + ICP fit of each named recommender visible in the material), experience (duplicate/confusing entries, clarity, low-value entries), and recent activity (posting cadence if visible, or its absence).
+
+Do not invent facts not visible in the material provided. If a classic profile section (banner, headline, about, featured, experience, recommendations, activity) was not included in the uploads, say so in "gaps" rather than guessing at its content — give it no score, and omit it from the weighted total conceptually (still include the key in the JSON with score null and a note that it wasn't provided).
+
+Respond with ONLY valid JSON, no markdown code fences, no commentary before or after, matching exactly this shape:
+
+{
+  "overall_summary": "2-3 sentence plain-language summary of where this profile stands for this ICP",
+  "sections": {
+    "banner": {"score": 0-10 or null, "working": ["..."], "change": ["..."], "recommendation": "one rewritten banner concept as a sentence"},
+    "headline": {"score": 0-10 or null, "issues": ["..."], "rewrites": ["rewrite 1 under 220 chars", "rewrite 2", "rewrite 3"]},
+    "about": {"score": 0-10 or null, "verdict": "would a cold ICP visitor keep reading or click away, and why", "rewritten_opening": "2-3 sentence rewrite", "vague_proof": ["..."], "cta_status": "assessment of the About section's call to action"},
+    "featured": {"score": 0-10 or null, "current_state": "assessment", "recommended_order": ["item 1", "item 2", "item 3"], "suggested_asset_title": "...", "suggested_asset_body": "..."},
+    "proof_trust": {"score": 0-10 or null, "rows": [{"section": "...", "status": "None|Buried|Vague|Unconvincing|Strong", "fix": "..."}]},
+    "cta": {"score": 0-10 or null, "missing_in": ["..."], "rewrites": [{"location": "Banner|About|Featured|Headline", "text": "..."}]}
+  },
+  "additional": {
+    "mechanics": ["..."],
+    "recommendations_summary": "assessment of recency + overall ICP fit",
+    "recommendations_rows": [{"name": "...", "role": "...", "icp_fit": "Strong|Moderate|Weak", "note": "..."}],
+    "recommendations_gap": "note on any missing/strong proof that exists elsewhere but isn't on LinkedIn, if applicable, else empty string",
+    "experience": ["..."],
+    "activity": "assessment of recent posting activity, or its absence"
+  },
+  "credibility_signals_score": 0-10,
+  "top_priorities": [{"title": "...", "why": "..."}, {"title": "...", "why": "..."}, {"title": "...", "why": "..."}],
+  "gaps": ["list of standard profile sections not visible in what was uploaded, empty array if none"]
+}`;
+
+function buildUserText(){
+  const icp = icpEl.value.trim();
+  const result = resultEl.value.trim();
+  const offer = offerEl.value.trim();
+  let txt = `IDEAL CLIENT:\n${icp}\n\n`;
+  if (result) txt += `SPECIFIC RESULT I CREATE FOR THEM:\n${result}\n\n`;
+  if (offer) txt += `MY PAID OFFER:\n${offer}\n\n`;
+  txt += `Audit the LinkedIn profile material attached against this ideal client. Return only the JSON object described in your instructions.`;
+  return txt;
+}
+
+async function runAudit(){
+  errBox.innerHTML = '';
+  showLoading();
+  runBtn.disabled = true;
+
+  try {
+    const totalMb = state.files.reduce((sum, e) => sum + e.file.size, 0) / (1024*1024);
+    if (totalMb > TOTAL_BLOCK_MB){
+      throw new Error(`Combined upload is ${totalMb.toFixed(0)}MB, which is too large to reliably process. Remove some files and try again.`);
+    }
+
+    const blocks = await Promise.all(state.files.map(fileToContentBlock));
+    const content = [ { type: 'text', text: buildUserText() }, ...blocks ];
+
+    const response = await fetch('/.netlify/functions/audit', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        system: SYSTEM_PROMPT,
+        messages: [ { role: 'user', content } ]
+      })
+    });
+
+    if (!response.ok){
+      let detail = '';
+      try { const errBody = await response.json(); detail = errBody.error ? ' — ' + errBody.error : ''; } catch(e){}
+      throw new Error('Request failed (' + response.status + ')' + detail);
+    }
+
+    const data = await response.json();
+    if (data.usage){
+      session.calls += 1;
+      session.inputTokens += (data.usage.input_tokens || 0);
+      session.outputTokens += (data.usage.output_tokens || 0);
+      renderSessionUsage();
+    }
+    const textParts = (data.content || []).filter(b => b.type === 'text').map(b => b.text);
+    const raw = textParts.join('\n').trim();
+    const cleaned = raw.replace(/^```json\s*/i, '').replace(/^```\s*/i, '').replace(/```\s*$/i, '').trim();
+
+    let parsed;
+    try { parsed = JSON.parse(cleaned); }
+    catch (parseErr){ throw new Error('Could not parse the audit response. Try running it again.'); }
+
+    const clientName = clientNameEl.value.trim() || 'Untitled audit';
+    currentInputs = { icp: icpEl.value, result: resultEl.value, offer: offerEl.value, clientName };
+    currentReport = parsed;
+    currentAuditId = uid();
+
+    await persistAudit(currentAuditId, {
+      id: currentAuditId,
+      clientName,
+      createdAt: new Date().toISOString(),
+      icp: icpEl.value, result: resultEl.value, offer: offerEl.value,
+      fileNames: state.files.map(e => e.file.name),
+      report: parsed
+    });
+
+    editMode = false;
+    renderReport(parsed, currentInputs);
+    refreshHistoryList();
+
+  } catch (err){
+    showEmpty();
+    errBox.innerHTML = `<div class="err-msg">${escapeHtml(err.message || 'Something went wrong running the audit.')}</div>`;
+  } finally {
+    updateRunButton();
+  }
+}
+runBtn.addEventListener('click', runAudit);
+
+function renderSessionUsage(){
+  sessionUsageEl.innerHTML = `This session: ${session.calls} audit${session.calls===1?'':'s'} run<br>~${session.inputTokens.toLocaleString()} input / ${session.outputTokens.toLocaleString()} output tokens<br><span style="color:#4a5268">Check console.anthropic.com for exact billing</span>`;
+}
+
+/* ===================== persistence ===================== */
+async function persistAudit(id, record){
+  await safeSet('audit:' + id, JSON.stringify(record));
+  const index = await loadAuditIndex();
+  index.unshift({ id, clientName: record.clientName, createdAt: record.createdAt, overallScore: computeOverall(record.report.sections, record.report.credibility_signals_score) });
+  await saveAuditIndex(index);
+}
+
+async function updateSavedAudit(){
+  if (!currentAuditId || !currentReport) return;
+  const raw = await safeGet('audit:' + currentAuditId);
+  if (!raw) return;
+  let record;
+  try { record = JSON.parse(raw); } catch(e){ return; }
+  record.report = currentReport;
+  await safeSet('audit:' + currentAuditId, JSON.stringify(record));
+  // keep index score in sync
+  const index = await loadAuditIndex();
+  const idx = index.find(a => a.id === currentAuditId);
+  if (idx){ idx.overallScore = computeOverall(currentReport.sections, currentReport.credibility_signals_score); await saveAuditIndex(index); }
+}
+
+async function refreshHistoryList(){
+  const index = await loadAuditIndex();
+  if (!index.length){
+    historyListEl.innerHTML = '<div class="history-empty">No saved audits yet, they will appear here after your first run.</div>';
+    compareBtn.style.display = 'none';
+    return;
+  }
+  historyListEl.innerHTML = index.map(a => `
+    <div class="history-item" data-id="${a.id}">
+      <input type="checkbox" data-id="${a.id}" ${selectedForCompare.has(a.id) ? 'checked' : ''}>
+      <div class="history-main" data-id="${a.id}">
+        <div class="history-name">${escapeHtml(a.clientName)}</div>
+        <div class="history-date">${fmtDate(a.createdAt)}</div>
+      </div>
+      <span class="history-score" style="color:${scoreColor(a.overallScore/10)};background:${scoreBg(a.overallScore/10)}">${a.overallScore}</span>
+      <button class="history-del" data-id="${a.id}" aria-label="Delete audit">×</button>
+    </div>
+  `).join('');
+
+  historyListEl.querySelectorAll('.history-main').forEach(el => {
+    el.addEventListener('click', () => loadAuditFromHistory(el.dataset.id));
+  });
+  historyListEl.querySelectorAll('input[type="checkbox"]').forEach(cb => {
+    cb.addEventListener('change', () => {
+      if (cb.checked){
+        if (selectedForCompare.size >= 2){
+          // drop the oldest selection to keep max 2
+          const first = selectedForCompare.values().next().value;
+          selectedForCompare.delete(first);
+        }
+        selectedForCompare.add(cb.dataset.id);
+      } else {
+        selectedForCompare.delete(cb.dataset.id);
+      }
+      compareBtn.style.display = selectedForCompare.size === 2 ? 'block' : 'none';
+      refreshHistoryList();
+    });
+  });
+  historyListEl.querySelectorAll('.history-del').forEach(btn => {
+    btn.addEventListener('click', async (e) => {
+      e.stopPropagation();
+      await safeDelete('audit:' + btn.dataset.id);
+      const idx = await loadAuditIndex();
+      await saveAuditIndex(idx.filter(a => a.id !== btn.dataset.id));
+      selectedForCompare.delete(btn.dataset.id);
+      compareBtn.style.display = selectedForCompare.size === 2 ? 'block' : 'none';
+      refreshHistoryList();
+    });
+  });
+}
+
+async function loadAuditFromHistory(id){
+  const raw = await safeGet('audit:' + id);
+  if (!raw) return;
+  let record;
+  try { record = JSON.parse(raw); } catch(e){ return; }
+  currentAuditId = record.id;
+  currentReport = record.report;
+  currentInputs = { icp: record.icp, result: record.result, offer: record.offer, clientName: record.clientName };
+  clientNameEl.value = record.clientName || '';
+  icpEl.value = record.icp || '';
+  resultEl.value = record.result || '';
+  offerEl.value = record.offer || '';
+  updateRunButton();
+  editMode = false;
+  renderReport(currentReport, currentInputs);
+}
+
+compareBtn.addEventListener('click', async () => {
+  const ids = Array.from(selectedForCompare);
+  if (ids.length !== 2) return;
+  const [rawA, rawB] = await Promise.all([safeGet('audit:' + ids[0]), safeGet('audit:' + ids[1])]);
+  if (!rawA || !rawB) return;
+  let a = JSON.parse(rawA), b = JSON.parse(rawB);
+  // order chronologically (older first = "before")
+  if (new Date(a.createdAt) > new Date(b.createdAt)) { [a,b] = [b,a]; }
+  renderCompare(a, b);
+});
+
+/* ===================== rendering: empty / loading ===================== */
+function showLoading(){
+  readout.innerHTML = `<div class="loading-state"><div class="scan-ring"></div><div class="loading-text">SCANNING PROFILE…</div></div>`;
+}
+function showEmpty(){
+  readout.innerHTML = `
+    <div class="empty-state" id="emptyState">
+      <svg viewBox="0 0 24 24" fill="none" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12h4l3 8 4-16 3 8h4"/></svg>
+      <h2>No signal yet</h2>
+      <p>Describe your ideal client and upload profile screenshots on the left, then run the audit to see a full scored breakdown here.</p>
+    </div>`;
+  currentAuditId = null; currentReport = null; currentInputs = null;
+}
+
+/* ===================== scoring helpers ===================== */
+function scoreColor(score){
+  if (score === null || score === undefined || isNaN(score)) return '#9aa4b6';
+  if (score >= 7) return 'var(--signal-strong)';
+  if (score >= 4) return 'var(--signal-mid)';
+  return 'var(--signal-weak)';
+}
+function scoreBg(score){
+  if (score === null || score === undefined || isNaN(score)) return '#eef0f4';
+  if (score >= 7) return '#e6f0e9';
+  if (score >= 4) return '#f6ecda';
+  return '#f5e3e0';
+}
+const WEIGHTS = { banner:1, headline:2, about:2, featured:1.5, proof_trust:1.5, cta:1 };
+function computeOverall(sections, credScore){
+  sections = sections || {};
+  let earned = 0, possible = 0;
+  for (const key in WEIGHTS){
+    const s = sections[key] && sections[key].score;
+    if (typeof s === 'number'){ earned += s * WEIGHTS[key] * 10; possible += 10 * WEIGHTS[key] * 10; }
+  }
+  if (typeof credScore === 'number'){ earned += credScore * 10; possible += 100; }
+  if (possible === 0) return 0;
+  return Math.round((earned / possible) * 100);
+}
+function overallLabel(score){
+  if (score >= 75) return { text:'STRONG SIGNAL', color:'var(--signal-strong)', bg:'#e6f0e9' };
+  if (score >= 45) return { text:'PARTIAL SIGNAL', color:'var(--signal-mid)', bg:'#f6ecda' };
+  return { text:'SIGNAL LOST', color:'var(--signal-weak)', bg:'#f5e3e0' };
+}
+function gaugeArc(score){
+  const angle = (score / 100) * 180;
+  const r = 70, cx = 90, cy = 90;
+  const rad = (Math.PI / 180) * (180 - angle);
+  const x = cx + r * Math.cos(rad);
+  const y = cy - r * Math.sin(rad);
+  const largeArc = angle > 180 ? 1 : 0;
+  return `M ${cx-r} ${cy} A ${r} ${r} 0 ${largeArc} 1 ${x} ${y}`;
+}
+function statusColor(status){
+  const s = (status||'').toLowerCase();
+  if (s === 'strong') return 'var(--signal-strong)';
+  if (s === 'vague' || s === 'buried') return 'var(--signal-mid)';
+  return 'var(--signal-weak)';
+}
+function statusBg(status){
+  const s = (status||'').toLowerCase();
+  if (s === 'strong') return '#e6f0e9';
+  if (s === 'vague' || s === 'buried') return '#f6ecda';
+  return '#f5e3e0';
+}
+
+/* ===================== editable helper ===================== */
+function setDeepValue(obj, path, value){
+  const parts = path.split('.');
+  let cur = obj;
+  for (let i = 0; i < parts.length - 1; i++){
+    const p = isFinite(parts[i]) ? Number(parts[i]) : parts[i];
+    cur = cur[p];
+  }
+  const last = isFinite(parts[parts.length-1]) ? Number(parts[parts.length-1]) : parts[parts.length-1];
+  cur[last] = value;
+}
+let saveDebounce = null;
+function scheduleSave(){
+  if (saveDebounce) clearTimeout(saveDebounce);
+  saveDebounce = setTimeout(() => { updateSavedAudit(); }, 600);
+}
+function bindEditableEvents(){
+  readout.querySelectorAll('.editable-text[data-path]').forEach(el => {
+    el.addEventListener('input', () => {
+      setDeepValue(currentReport, el.dataset.path, el.innerText);
+      scheduleSave();
+    });
+  });
+}
+
+/* ===================== main report render ===================== */
+function editableSpan(path, text){
+  return `<span class="editable-text" contenteditable="${editMode}" data-path="${escapeHtml(path)}">${escapeHtml(text)}</span>`;
+}
+
+function renderReport(d, inputs){
+  const sections = d.sections || {};
+  const cred = d.credibility_signals_score;
+  const overall = computeOverall(sections, cred);
+  const label = overallLabel(overall);
+  const preparedFor = (inputs && inputs.clientName) || 'Untitled audit';
+
+  const sectionMeta = [
+    { key:'banner', num:'01', title:'First Visual Impression' },
+    { key:'headline', num:'02', title:'Headline Clarity' },
+    { key:'about', num:'03', title:'About Section' },
+    { key:'featured', num:'04', title:'Featured Section' },
+    { key:'proof_trust', num:'05', title:'Proof & Trust' },
+    { key:'cta', num:'06', title:'Next Step / CTA' },
+  ];
+
+  let html = '';
+  html += `<div class="report-toolbar">
+    <div class="report-title-block">
+      <span class="report-title">Audit report</span>
+      <span class="report-prepared-for">${escapeHtml(preparedFor)}</span>
+    </div>
+    <div class="toolbar-actions">
+      <button class="tb-btn ${editMode?'active':''}" id="editToggleBtn">${editMode ? 'Done editing' : 'Edit rewrites'}</button>
+      <button class="tb-btn" id="exportJsonBtn">Export JSON</button>
+      <button class="tb-btn" id="importJsonBtn">Import JSON</button>
+      <button class="tb-btn" onclick="window.print()">Print / Save PDF</button>
+      <button class="tb-btn" id="newAuditBtn">New audit</button>
+    </div>
+  </div>`;
+
+  html += `<div class="gauge-card">
+    <div class="gauge-wrap">
+      <svg width="180" height="105" viewBox="0 0 180 105">
+        <path d="M 20 90 A 70 70 0 1 1 160 90" fill="none" stroke="var(--line)" stroke-width="14" stroke-linecap="round"/>
+        <path d="${gaugeArc(overall)}" fill="none" stroke="${label.color}" stroke-width="14" stroke-linecap="round"/>
+        <text x="90" y="82" class="gauge-readout gauge-num">${overall}</text>
+        <text x="90" y="98" class="gauge-readout gauge-max">/ 100</text>
+      </svg>
+    </div>
+    <div class="gauge-info">
+      <span class="gauge-label" style="color:${label.color};background:${label.bg}">${label.text}</span>
+      <p class="gauge-desc">${escapeHtml(d.overall_summary || '')}</p>
+    </div>
+  </div>`;
+
+  html += `<div class="score-grid">`;
+  sectionMeta.forEach(m => {
+    const sc = sections[m.key] ? sections[m.key].score : null;
+    const pct = typeof sc === 'number' ? sc * 10 : 0;
+    html += `<div class="score-row">
+      <div class="score-row-top"><span class="score-row-label">${m.title}</span><span class="score-row-val">${typeof sc === 'number' ? sc + '/10' : '—'}</span></div>
+      <div class="score-bar-track"><div class="score-bar-fill" style="width:${pct}%;background:${scoreColor(sc)}"></div></div>
+    </div>`;
+  });
+  html += `<div class="score-row">
+    <div class="score-row-top"><span class="score-row-label">Credibility signals</span><span class="score-row-val">${typeof cred === 'number' ? cred + '/10' : '—'}</span></div>
+    <div class="score-bar-track"><div class="score-bar-fill" style="width:${(cred||0)*10}%;background:${scoreColor(cred)}"></div></div>
+  </div>`;
+  html += `</div>`;
+
+  if (d.gaps && d.gaps.length){
+    html += `<div class="gaps-note"><strong>Not seen in your uploads:</strong> ${d.gaps.map(escapeHtml).join(', ')} — these weren't scored. Add screenshots of them for a fuller picture.</div>`;
+  }
+
+  sectionMeta.forEach((m, i) => {
+    const s = sections[m.key] || {};
+    const sc = s.score;
+    html += `<div class="section-card ${i===0?'open':''} ${editMode?'edit-on':''}" data-key="${m.key}">
+      <div class="section-head" role="button" tabindex="0">
+        <span class="section-num">${m.num}</span>
+        <span class="section-title">${m.title}</span>
+        <span class="section-score" style="color:${scoreColor(sc)};background:${scoreBg(sc)}">${typeof sc === 'number' ? sc+'/10' : 'N/A'}</span>
+        <svg class="chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9l6 6 6-6"/></svg>
+      </div>
+      <div class="section-body">${renderSectionBody(m.key, s)}</div>
+    </div>`;
+  });
+
+  const a = d.additional || {};
+  html += `<div class="section-card" data-key="additional">
+    <div class="section-head" role="button" tabindex="0">
+      <span class="section-num">＋</span>
+      <span class="section-title">Additional Improvements</span>
+      <span class="section-score" style="color:var(--slate);background:#eef0f4">—</span>
+      <svg class="chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9l6 6 6-6"/></svg>
+    </div>
+    <div class="section-body">
+      ${(a.mechanics && a.mechanics.length) ? `<div class="addl-block"><div class="sb-heading">Profile mechanics</div><ul class="sb-list">${a.mechanics.map(x=>`<li>${escapeHtml(x)}</li>`).join('')}</ul></div>` : ''}
+      <div class="addl-block">
+        <div class="sb-heading">Recommendations</div>
+        ${a.recommendations_summary ? `<p class="sb-text">${escapeHtml(a.recommendations_summary)}</p>` : ''}
+        ${(a.recommendations_rows && a.recommendations_rows.length) ? `
+        <table class="rec-table">
+          <thead><tr><th>Name</th><th>Role</th><th>ICP fit</th><th>Note</th></tr></thead>
+          <tbody>${a.recommendations_rows.map(r => `<tr><td><strong>${escapeHtml(r.name||'')}</strong></td><td>${escapeHtml(r.role||'')}</td><td>${escapeHtml(r.icp_fit||'')}</td><td>${escapeHtml(r.note||'')}</td></tr>`).join('')}</tbody>
+        </table>` : ''}
+        ${a.recommendations_gap ? `<p class="sb-text" style="margin-top:8px;"><strong>Gap:</strong> ${escapeHtml(a.recommendations_gap)}</p>` : ''}
+      </div>
+      ${(a.experience && a.experience.length) ? `<div class="addl-block"><div class="sb-heading">Experience</div><ul class="sb-list">${a.experience.map(x=>`<li>${escapeHtml(x)}</li>`).join('')}</ul></div>` : ''}
+      ${a.activity ? `<div class="addl-block"><div class="sb-heading">Recent activity</div><p class="sb-text">${escapeHtml(a.activity)}</p></div>` : ''}
+    </div>
+  </div>`;
+
+  if (d.top_priorities && d.top_priorities.length){
+    html += `<div class="priorities-title">Top priorities this week</div>`;
+    d.top_priorities.forEach((p, idx) => {
+      html += `<div class="priority-card"><div class="priority-num">${idx+1}</div><div class="priority-body"><h4>${escapeHtml(p.title||'')}</h4><p>${escapeHtml(p.why||'')}</p></div></div>`;
+    });
+  }
+
+  html += `<div class="footer-note">Generated from uploaded profile material and the ideal-client brief provided. Review before acting — this is a strong first pass, not a substitute for judgment on client-specific nuance.</div>`;
+
+  readout.innerHTML = html;
+
+  readout.querySelectorAll('.section-head').forEach(h => {
+    h.addEventListener('click', () => h.closest('.section-card').classList.toggle('open'));
+    h.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' '){ e.preventDefault(); h.click(); } });
+  });
+  document.getElementById('newAuditBtn').addEventListener('click', showEmpty);
+  document.getElementById('editToggleBtn').addEventListener('click', () => {
+    editMode = !editMode;
+    renderReport(currentReport, currentInputs);
+  });
+  document.getElementById('exportJsonBtn').addEventListener('click', exportCurrentJson);
+  document.getElementById('importJsonBtn').addEventListener('click', importJson);
+
+  bindEditableEvents();
+}
+
+function renderSectionBody(key, s){
+  if (typeof s.score !== 'number'){
+    return `<p class="sb-text" style="color:var(--slate-light)">Not enough material was provided to assess this section.</p>`;
+  }
+  if (key === 'banner'){
+    return `
+      ${s.working && s.working.length ? `<div class="sb-block"><div class="sb-heading">What's working</div><ul class="sb-list">${s.working.map(x=>`<li>${escapeHtml(x)}</li>`).join('')}</ul></div>` : ''}
+      ${s.change && s.change.length ? `<div class="sb-block"><div class="sb-heading">What should change</div><ul class="sb-list">${s.change.map(x=>`<li>${escapeHtml(x)}</li>`).join('')}</ul></div>` : ''}
+      ${s.recommendation ? `<div class="sb-block"><div class="sb-heading">Recommendation</div><div class="rewrite-block">${editableSpan('sections.banner.recommendation', s.recommendation)}</div></div>` : ''}
+    `;
+  }
+  if (key === 'headline'){
+    return `
+      ${s.issues && s.issues.length ? `<div class="sb-block"><div class="sb-heading">Issues</div><ul class="sb-list">${s.issues.map(x=>`<li>${escapeHtml(x)}</li>`).join('')}</ul></div>` : ''}
+      ${s.rewrites && s.rewrites.length ? `<div class="sb-block"><div class="sb-heading">Rewrites</div>${s.rewrites.map((r,i)=>`<div class="rewrite-block"><span class="rewrite-tag">Option ${i+1}</span>${editableSpan('sections.headline.rewrites.'+i, r)}</div>`).join('')}</div>` : ''}
+    `;
+  }
+  if (key === 'about'){
+    return `
+      ${s.verdict ? `<div class="sb-block"><div class="sb-heading">Cold visitor verdict</div><p class="sb-text">${escapeHtml(s.verdict)}</p></div>` : ''}
+      ${s.rewritten_opening ? `<div class="sb-block"><div class="sb-heading">Rewritten opening</div><div class="rewrite-block">${editableSpan('sections.about.rewritten_opening', s.rewritten_opening)}</div></div>` : ''}
+      ${s.vague_proof && s.vague_proof.length ? `<div class="sb-block"><div class="sb-heading">Where proof is vague</div><ul class="sb-list">${s.vague_proof.map(x=>`<li>${escapeHtml(x)}</li>`).join('')}</ul></div>` : ''}
+      ${s.cta_status ? `<div class="sb-block"><div class="sb-heading">Call to action</div><p class="sb-text">${escapeHtml(s.cta_status)}</p></div>` : ''}
+    `;
+  }
+  if (key === 'featured'){
+    return `
+      ${s.current_state ? `<div class="sb-block"><div class="sb-heading">Current state</div><p class="sb-text">${escapeHtml(s.current_state)}</p></div>` : ''}
+      ${s.recommended_order && s.recommended_order.length ? `<div class="sb-block"><div class="sb-heading">Recommended order</div><ul class="sb-list">${s.recommended_order.map((x,i)=>`<li>${i+1}. ${escapeHtml(x)}</li>`).join('')}</ul></div>` : ''}
+      ${(s.suggested_asset_title || s.suggested_asset_body) ? `<div class="sb-block"><div class="sb-heading">Suggested asset</div><div class="rewrite-block"><strong>${editableSpan('sections.featured.suggested_asset_title', s.suggested_asset_title||'')}</strong><br>${editableSpan('sections.featured.suggested_asset_body', s.suggested_asset_body||'')}</div></div>` : ''}
+    `;
+  }
+  if (key === 'proof_trust'){
+    if (!s.rows || !s.rows.length) return '';
+    return `<table class="proof-table"><thead><tr><th>Section</th><th>Status</th><th>Fix</th></tr></thead>
+      <tbody>${s.rows.map(r => `<tr><td><strong>${escapeHtml(r.section||'')}</strong></td><td><span class="proof-status" style="color:${statusColor(r.status)};background:${statusBg(r.status)}">${escapeHtml(r.status||'')}</span></td><td>${escapeHtml(r.fix||'')}</td></tr>`).join('')}</tbody>
+    </table>`;
+  }
+  if (key === 'cta'){
+    return `
+      ${s.missing_in && s.missing_in.length ? `<div class="sb-block"><div class="sb-heading">Missing in</div><ul class="sb-list">${s.missing_in.map(x=>`<li>${escapeHtml(x)}</li>`).join('')}</ul></div>` : ''}
+      ${s.rewrites && s.rewrites.length ? `<div class="sb-block"><div class="sb-heading">Replacement CTAs</div>${s.rewrites.map((r,i)=>`<div class="rewrite-block"><span class="rewrite-tag">${escapeHtml(r.location||'')}</span>${editableSpan('sections.cta.rewrites.'+i+'.text', r.text||'')}</div>`).join('')}</div>` : ''}
+    `;
+  }
+  return '';
+}
+
+/* ===================== export / import ===================== */
+function exportCurrentJson(){
+  if (!currentReport) return;
+  const payload = { clientName: (currentInputs && currentInputs.clientName) || 'audit', icp: currentInputs && currentInputs.icp, result: currentInputs && currentInputs.result, offer: currentInputs && currentInputs.offer, report: currentReport, exportedAt: new Date().toISOString() };
+  const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = (payload.clientName || 'audit').replace(/[^a-z0-9\-_ ]/gi,'').trim().replace(/\s+/g,'-') + '-linkedin-audit.json';
+  document.body.appendChild(a); a.click(); document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
+
+function importJson(){
+  const input = document.createElement('input');
+  input.type = 'file';
+  input.accept = 'application/json';
+  input.addEventListener('change', async () => {
+    const file = input.files[0];
+    if (!file) return;
+    try {
+      const text = await file.text();
+      const payload = JSON.parse(text);
+      if (!payload.report) throw new Error('missing report');
+      currentReport = payload.report;
+      currentInputs = { icp: payload.icp || '', result: payload.result || '', offer: payload.offer || '', clientName: (payload.clientName || 'Imported audit') + ' (imported)' };
+      clientNameEl.value = currentInputs.clientName;
+      icpEl.value = currentInputs.icp; resultEl.value = currentInputs.result; offerEl.value = currentInputs.offer;
+      updateRunButton();
+      currentAuditId = uid();
+      await persistAudit(currentAuditId, {
+        id: currentAuditId, clientName: currentInputs.clientName, createdAt: new Date().toISOString(),
+        icp: currentInputs.icp, result: currentInputs.result, offer: currentInputs.offer,
+        fileNames: [], report: currentReport
+      });
+      editMode = false;
+      renderReport(currentReport, currentInputs);
+      refreshHistoryList();
+    } catch (e){
+      errBox.innerHTML = `<div class="err-msg">Couldn't import that file — make sure it's a JSON export from this tool.</div>`;
+    }
+  });
+  input.click();
+}
+
+/* ===================== compare view ===================== */
+function renderCompare(a, b){
+  const sectionMeta = [
+    { key:'banner', title:'First Visual Impression' },
+    { key:'headline', title:'Headline Clarity' },
+    { key:'about', title:'About Section' },
+    { key:'featured', title:'Featured Section' },
+    { key:'proof_trust', title:'Proof & Trust' },
+    { key:'cta', title:'Next Step / CTA' },
+  ];
+  const scoreA = computeOverall(a.report.sections, a.report.credibility_signals_score);
+  const scoreB = computeOverall(b.report.sections, b.report.credibility_signals_score);
+  const overallDelta = scoreB - scoreA;
+
+  let html = `<div class="report-toolbar">
+    <div class="report-title-block"><span class="report-title">Comparison</span><span class="report-prepared-for">${escapeHtml(a.clientName)} → ${escapeHtml(b.clientName)}</span></div>
+    <div class="toolbar-actions"><button class="tb-btn" onclick="window.print()">Print / Save PDF</button><button class="tb-btn" id="newAuditBtn">New audit</button></div>
+  </div>`;
+
+  html += `<div class="compare-grid">
+    <div class="compare-col-head"><div class="cc-name">${escapeHtml(a.clientName)}</div><div class="cc-date">${fmtDate(a.createdAt)} · BEFORE</div><div class="cc-score">${scoreA}</div></div>
+    <div class="compare-col-head"><div class="cc-name">${escapeHtml(b.clientName)}</div><div class="cc-date">${fmtDate(b.createdAt)} · AFTER</div><div class="cc-score">${scoreB}</div></div>
+  </div>`;
+
+  html += `<div class="delta-row" style="background:var(--ink);">
+    <div class="delta-label" style="color:#eef0f4;">Overall score</div>
+    <div class="delta-scores">
+      <span class="delta-old" style="color:#9aa4b6">${scoreA}</span>
+      <span class="delta-arrow" style="color:#9aa4b6">→</span>
+      <span class="delta-new" style="color:#fff">${scoreB}</span>
+      <span class="delta-chip" style="color:${overallDelta>=0?'var(--signal-strong)':'var(--signal-weak)'};background:${overallDelta>=0?'#1c3626':'#3a1c1c'}">${overallDelta>=0?'+':''}${overallDelta}</span>
+    </div>
+  </div>`;
+
+  sectionMeta.forEach(m => {
+    const sa = (a.report.sections && a.report.sections[m.key]) || {};
+    const sb = (b.report.sections && b.report.sections[m.key]) || {};
+    const va = typeof sa.score === 'number' ? sa.score : null;
+    const vb = typeof sb.score === 'number' ? sb.score : null;
+    const delta = (va !== null && vb !== null) ? (vb - va) : null;
+    html += `<div class="delta-row">
+      <div class="delta-label">${m.title}</div>
+      <div class="delta-scores">
+        <span class="delta-old">${va !== null ? va+'/10' : '—'}</span>
+        <span class="delta-arrow">→</span>
+        <span class="delta-new" style="color:${scoreColor(vb)}">${vb !== null ? vb+'/10' : '—'}</span>
+        ${delta !== null ? `<span class="delta-chip" style="color:${delta>=0?'var(--signal-strong)':'var(--signal-weak)'};background:${delta>=0?'#e6f0e9':'#f5e3e0'}">${delta>=0?'+':''}${delta}</span>` : ''}
+      </div>
+    </div>`;
+  });
+
+  const ca = a.report.credibility_signals_score, cb = b.report.credibility_signals_score;
+  const cDelta = (typeof ca === 'number' && typeof cb === 'number') ? (cb - ca) : null;
+  html += `<div class="delta-row">
+    <div class="delta-label">Credibility signals</div>
+    <div class="delta-scores">
+      <span class="delta-old">${typeof ca==='number' ? ca+'/10' : '—'}</span>
+      <span class="delta-arrow">→</span>
+      <span class="delta-new" style="color:${scoreColor(cb)}">${typeof cb==='number' ? cb+'/10' : '—'}</span>
+      ${cDelta !== null ? `<span class="delta-chip" style="color:${cDelta>=0?'var(--signal-strong)':'var(--signal-weak)'};background:${cDelta>=0?'#e6f0e9':'#f5e3e0'}">${cDelta>=0?'+':''}${cDelta}</span>` : ''}
+    </div>
+  </div>`;
+
+  html += `<div class="footer-note">Comparing two saved audits. Scores are only directly comparable if both audits were run against the same, or a similarly-scoped, ideal-client brief.</div>`;
+
+  readout.innerHTML = html;
+  document.getElementById('newAuditBtn').addEventListener('click', showEmpty);
+}
+
+/* ===================== init ===================== */
+populateTemplates();
+refreshProfileDropdownAndList();
+refreshHistoryList();
+renderSessionUsage();
+</script>
+</body>
+</html>
