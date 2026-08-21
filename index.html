@@ -325,7 +325,7 @@
 
   @page{
     size:portrait;
-    margin:14mm 14mm 16mm 14mm;
+    margin:20mm 14mm 18mm 14mm;
   }
   @media print{
     .panel, .report-toolbar, .empty-state, .loading-state{display:none !important;}
@@ -334,6 +334,8 @@
        any page (relying on @page margin alone left body pages flush-left) */
     .readout{padding:0 4mm !important; max-width:none !important; margin:0 !important;}
     html, body{background:#fff !important;}
+    /* reserve space at top/bottom of every page for the fixed running bands */
+    body{ padding-top:12mm !important; padding-bottom:9mm !important; }
     .section-body{display:block !important;}
     .chevron{display:none !important;}
     .section-card{break-inside:avoid; border:1px solid #d8d3c7 !important; box-shadow:none !important; margin-bottom:12px;}
@@ -349,10 +351,27 @@
     .gauge-wrap{ break-inside:avoid; }
     .section-card, .additional-card, .priorities-block{ break-inside:avoid; }
     a[href]:after{ content:""; }
-    /* printed document header — appears once at the top of the report */
+    /* one-time large title block shows on page 1; running bands repeat on all */
     #printHeader{ display:block !important; }
+    #printFooter{ display:none !important; }
+    /* running header + footer bands: position:fixed repeats them on every
+       printed page in Chrome. Page content clears them via body padding. */
+    #runHeader{
+      display:flex !important; position:fixed; top:0; left:0; right:0;
+      align-items:baseline; justify-content:space-between; gap:12px;
+      padding:0 0 6px; border-bottom:1.5px solid var(--brass);
+      font-family:'Inter',sans-serif;
+    }
+    #runHeader .rh-brand{ font-family:'Fraunces',serif; font-weight:700; font-size:11pt; color:var(--ink); }
+    #runHeader .rh-brand .rh-dot{ color:var(--brass); }
+    #runHeader .rh-meta{ font-size:8pt; color:var(--slate-light); text-align:right; }
+    #runFooter{
+      display:block !important; position:fixed; bottom:0; left:0; right:0;
+      padding:5px 0 0; border-top:1px solid var(--line);
+      font-family:'Inter',sans-serif; font-size:7.5pt; color:var(--slate-light); text-align:center;
+    }
   }
-  /* hidden on screen, shown only when printing (see @media print above) */
+  /* one-time in-flow header/footer (kept for on-screen; hidden in print above) */
   #printHeader{ display:none; margin-bottom:22px; padding-bottom:14px; border-bottom:2px solid var(--brass); }
   #printHeader .ph-brand{ font-family:'Fraunces',serif; font-weight:700; font-size:15px; color:var(--ink); }
   #printHeader .ph-brand .ph-dot{ color:var(--brass); }
@@ -360,6 +379,8 @@
   #printHeader .ph-sub{ font-size:12px; color:var(--slate-light); }
   #printFooter{ margin-top:26px; padding-top:14px; border-top:1px solid var(--line); font-size:10px; color:var(--slate-light); line-height:1.6; }
   #printFooter .pf-brand{ font-weight:700; color:var(--slate); margin-bottom:3px; }
+  /* running bands are print-only: hidden on screen */
+  #runHeader, #runFooter{ display:none; }
 
   /* ---------- auth gate ---------- */
   .auth-gate{
@@ -436,6 +457,12 @@
 </div>
 
 <div class="app" id="appRoot" style="display:none;">
+  <div id="runHeader">
+    <span class="rh-brand">Flatirons Creative Studio<span class="rh-dot">.</span></span>
+    <span class="rh-meta" id="runHeaderMeta">LinkedIn Profile Review</span>
+  </div>
+  <div id="runFooter">Prepared by Flatirons Creative Studio · Review before acting — a strong first pass, not a substitute for client-specific judgment.</div>
+
 
 
   <!-- ============ LEFT CONTROL PANEL ============ -->
@@ -1861,6 +1888,14 @@ function renderReport(d, inputs){
   </div>`;
 
   readout.innerHTML = html;
+
+  // update the running print header's right-side meta with client + date
+  const runMeta = document.getElementById('runHeaderMeta');
+  if (runMeta){
+    const who = (inputs && inputs.clientName) ? inputs.clientName : '';
+    const when = new Date().toLocaleDateString(undefined,{year:'numeric',month:'short',day:'numeric'});
+    runMeta.textContent = 'LinkedIn Profile Review' + (who ? ' · ' + who : '') + ' · ' + when;
+  }
 
   readout.querySelectorAll('.section-head').forEach(h => {
     h.addEventListener('click', () => h.closest('.section-card').classList.toggle('open'));
