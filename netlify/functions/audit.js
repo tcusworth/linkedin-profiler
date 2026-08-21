@@ -93,6 +93,10 @@ exports.handler = stream(async function (event) {
         model: 'claude-sonnet-5',
         max_tokens: 4096,
         stream: true,
+        // Explicitly disable extended thinking: this endpoint needs clean JSON
+        // output, and thinking blocks stream as thinking_delta events (not
+        // text_delta), which would otherwise come back as empty text.
+        thinking: { type: 'disabled' },
         system: payload.system,
         messages: payload.messages
       })

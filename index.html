@@ -1060,15 +1060,15 @@ function buildUserText(){
 }
 
 // Reads Anthropic's streaming (SSE) response and reassembles the full text
-// plus token usage. The audit endpoint streams so it can run past Netlify's
-// 10s synchronous cap. Netlify may deliver the SSE body in a few large
-// chunks rather than event-by-event, so this parses line-by-line and doesn't
-// rely on "\n\n" event boundaries surviving intact.
+// plus token usage. Netlify may deliver the SSE body in a few large chunks
+// rather than event-by-event, so this parses line-by-line and doesn't rely
+// on "\n\n" event boundaries surviving intact. Only text deltas are kept;
+// thinking deltas (if the model ever emits them) are deliberately ignored,
+// since this endpoint wants clean JSON output, not reasoning.
 async function readAnthropicStream(response){
   const reader = response.body.getReader();
   const decoder = new TextDecoder();
   let buffer = '';
-  let rawAll = '';
   let text = '';
   const usage = { input_tokens: 0, output_tokens: 0 };
   let streamError = null;
@@ -1109,19 +1109,14 @@ async function readAnthropicStream(response){
   while (true){
     const { done, value } = await reader.read();
     if (done) break;
-    const chunk = decoder.decode(value, { stream: true });
-    rawAll += chunk;
-    buffer += chunk;
+    buffer += decoder.decode(value, { stream: true });
     drainLines(false);
   }
   buffer += decoder.decode();
   drainLines(true);
 
   if (streamError) throw new Error(streamError);
-  if (!text) {
-    console.log('[Signal debug] empty text. Raw stream tail:', rawAll.slice(-800));
-    throw new Error('The audit came back empty. Try running it again.');
-  }
+  if (!text) throw new Error('The audit came back empty. Try running it again.');
   return { text, usage };
 }
 
@@ -1157,7 +1152,6 @@ async function runAudit(){
     }
 
     const { text: raw, usage } = await readAnthropicStream(response);
-    console.log('[Signal debug] audit raw length:', raw.length, '| first 200:', raw.slice(0,200), '| last 200:', raw.slice(-200));
     if (usage){
       session.calls += 1;
       session.inputTokens += (usage.input_tokens || 0);
